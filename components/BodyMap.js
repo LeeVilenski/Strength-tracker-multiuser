@@ -48,31 +48,31 @@ const FRONT_HOTSPOTS = {
   shoulders: {
     label: "Shoulders",
     regions: [
-      { top:18, left:40, width:6, height:5, borderRadius:"50%" },   // L — in 2%
-      { top:18, left:54, width:6, height:5, borderRadius:"50%" },   // R — in 2%
+      { top:18, left:40, width:6, height:5, borderRadius:"50%" },   // L
+      { top:18, left:52, width:6, height:5, borderRadius:"50%" },   // R — in 2%
     ],
   },
   chest: {
     label: "Chest",
     regions: [
       { top:26, left:40, width:8, height:7, borderRadius:"40% 30% 50% 40%" },
-      { top:26, left:50, width:8, height:7, borderRadius:"30% 40% 40% 50%" },
+      { top:26, left:48, width:8, height:7, borderRadius:"30% 40% 40% 50%" },   // R — in 2%
     ],
   },
   biceps: {
     label: "Biceps",
     regions: [
       { top:26, left:33, width:5, height:8, borderRadius:"50%" },
-      { top:26, left:62, width:5, height:8, borderRadius:"50%" },   // R — in 1%
+      { top:26, left:60, width:5, height:8, borderRadius:"50%" },   // R — in 2%
     ],
   },
   core: {
     label: "Core",
     regions: [
       { top:36, left:42, width:6, height:6, borderRadius:"30%" },
-      { top:36, left:50, width:6, height:6, borderRadius:"30%" },
+      { top:36, left:48, width:6, height:6, borderRadius:"30%" },   // R — in 2%
       { top:42, left:43, width:5, height:5, borderRadius:"30%" },
-      { top:42, left:50, width:5, height:5, borderRadius:"30%" },
+      { top:42, left:48, width:5, height:5, borderRadius:"30%" },   // R — in 2%
     ],
   },
   quads: {
