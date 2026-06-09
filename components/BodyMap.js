@@ -62,8 +62,8 @@ const FRONT_HOTSPOTS = {
   biceps: {
     label: "Biceps",
     regions: [
-      { top:26, left:33, width:5, height:8, borderRadius:"50%" },
-      { top:26, left:60, width:5, height:8, borderRadius:"50%" },   // R — in 2%
+      { top:26, left:35, width:5, height:8, borderRadius:"50%" },
+      { top:26, left:58, width:5, height:8, borderRadius:"50%" },
     ],
   },
   core: {
