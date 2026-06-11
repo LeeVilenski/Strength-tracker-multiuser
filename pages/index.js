@@ -102,6 +102,7 @@ function actInBucket(act, bucket){
 
 // ── Dual line chart: run km + strength mins per week ──
 function WeeklyLineChart({runs, strength}){
+  const [hover,setHover]=useState(null);
   const weeks=getWeekBuckets(8);
   const runKm=weeks.map(w=>runs.filter(r=>actInBucket(r,w)).reduce((acc,r)=>acc+(r.distance/1000),0));
   const strMins=weeks.map(w=>strength.filter(s=>actInBucket(s,w)).reduce((acc,s)=>acc+(s.duration/60),0));
@@ -122,9 +123,19 @@ function WeeklyLineChart({runs, strength}){
   // Y axis ticks (run km side)
   const yTicks=[0, Math.round(maxKm/2), Math.round(maxKm)];
 
+  function handleMove(e){
+    const rect=e.currentTarget.getBoundingClientRect();
+    const clientX=e.touches?e.touches[0].clientX:e.clientX;
+    const x=((clientX-rect.left)/rect.width)*W;
+    const idx=Math.max(0,Math.min(n-1,Math.round((x-PAD.l)/cw*(n-1))));
+    setHover(idx);
+  }
+
   return(
-    <div style={{overflowX:"auto"}}>
-      <svg width={W} height={H} style={{display:"block",fontFamily:"Inter,sans-serif"}}>
+    <div style={{overflowX:"auto",position:"relative"}}>
+      <svg width={W} height={H} style={{display:"block",fontFamily:"Inter,sans-serif",touchAction:"none",cursor:"crosshair"}}
+        onMouseMove={handleMove} onMouseLeave={()=>setHover(null)}
+        onTouchStart={handleMove} onTouchMove={handleMove} onTouchEnd={()=>setHover(null)}>
         {/* Grid lines */}
         {yTicks.map(t=>(
           <line key={t} x1={PAD.l} x2={W-PAD.r} y1={yRun(t)} y2={yRun(t)} stroke="#f3f4f6" strokeWidth="1"/>
@@ -146,7 +157,20 @@ function WeeklyLineChart({runs, strength}){
         {weeks.map((w,i)=>(i%2===0||i===n-1)&&(
           <text key={i} x={xPos(i)} y={H-4} textAnchor="middle" fontSize="9" fill={C.textFaint}>{w.label}</text>
         ))}
+        {/* Hover guideline + highlighted points */}
+        {hover!=null&&<>
+          <line x1={xPos(hover)} y1={PAD.t} x2={xPos(hover)} y2={PAD.t+ch} stroke="#9ca3af" strokeWidth="1" strokeDasharray="2,2" opacity="0.5"/>
+          <circle cx={xPos(hover)} cy={yRun(runKm[hover])} r="4" fill="#fb923c" stroke="#fff" strokeWidth="1.5"/>
+          <circle cx={xPos(hover)} cy={yStr(strMins[hover])} r="4" fill={C.blue} stroke="#fff" strokeWidth="1.5"/>
+        </>}
       </svg>
+      {hover!=null&&(
+        <div style={{position:"absolute",top:0,left:Math.min(Math.max(xPos(hover),60),W-60),transform:"translateX(-50%)",background:"#111827",color:"#fff",borderRadius:6,padding:"6px 10px",fontSize:11,whiteSpace:"nowrap",pointerEvents:"none",zIndex:10,boxShadow:"0 2px 8px rgba(0,0,0,0.2)"}}>
+          <div style={{fontSize:9,color:"#9ca3af",fontWeight:"500",marginBottom:2}}>Week of {weeks[hover].label}</div>
+          <div style={{color:"#fb923c",fontWeight:"600"}}>{runKm[hover].toFixed(1)} km run</div>
+          <div style={{color:"#60a5fa",fontWeight:"600"}}>{Math.round(strMins[hover])} min strength</div>
+        </div>
+      )}
     </div>
   );
 }
