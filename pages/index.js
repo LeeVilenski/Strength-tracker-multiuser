@@ -33,24 +33,28 @@ function groupRunsByMonth(runs){
   }
   return Object.values(map).map(m=>({...m,pace:m.km>0?(m.durationSec/60)/m.km:null})).sort((a,b)=>b.key.localeCompare(a.key));
 }
-// Standard race/training distances, with a tolerance band to absorb GPS drift
-const DISTANCE_MILESTONES=[
-  {label:"2 Mile",   meters:3219},
-  {label:"5K",       meters:5000},
-  {label:"5 Mile",   meters:8047},
-  {label:"10K",      meters:10000},
-  {label:"15K",      meters:15000},
-  {label:"Half Marathon", meters:21098},
-  {label:"30K",      meters:30000},
-  {label:"Marathon", meters:42195},
+// Distance buckets — each spans from its own distance up to (but not including) the
+// next bucket's distance. The final bucket (Marathon) is open-ended.
+const DISTANCE_BUCKETS=[
+  {label:"Under 2 Mile",   meters:0},
+  {label:"2 Mile",         meters:3219},
+  {label:"5K",             meters:5000},
+  {label:"5 Mile",         meters:8047},
+  {label:"10K",            meters:10000},
+  {label:"15K",            meters:15000},
+  {label:"Half Marathon",  meters:21098},
+  {label:"30K",            meters:30000},
+  {label:"Marathon",       meters:42195},
 ];
-const DISTANCE_TOLERANCE_PCT=0.03;
-// Count runs matching each standard distance (within ±3%) -> [{label, meters, count}]
+// Bucket every run into the largest distance bucket it reaches -> [{label, meters, count}]
 function countRunsByDistance(runs){
-  return DISTANCE_MILESTONES.map(m=>({
-    ...m,
-    count: runs.filter(r=>Math.abs(r.distance-m.meters)<=m.meters*DISTANCE_TOLERANCE_PCT).length,
-  }));
+  return DISTANCE_BUCKETS.map((b,i)=>{
+    const next=DISTANCE_BUCKETS[i+1];
+    return {
+      ...b,
+      count: runs.filter(r=>r.distance>=b.meters&&(!next||r.distance<next.meters)).length,
+    };
+  });
 }
 // Group strength sessions by calendar month -> [{key:"YYYY-MM", count, durationSec}], most recent first
 function groupStrengthByMonth(sessions){
@@ -387,7 +391,7 @@ function RunsTab({runs}){
       {statCard(fmtPace(overallPace),"Avg pace")}
     </div>
 
-    <div style={S.sectionLabel}>Distance milestones</div>
+    <div style={S.sectionLabel}>Run distances</div>
     <div style={{...S.card,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
       {milestones.map(m=>(
         <div key={m.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:m.count>0?C.orangeLight:C.bg,border:`1px solid ${m.count>0?C.orangeBorder:C.border}`,borderRadius:8}}>
