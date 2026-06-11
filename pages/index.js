@@ -33,6 +33,25 @@ function groupRunsByMonth(runs){
   }
   return Object.values(map).map(m=>({...m,pace:m.km>0?(m.durationSec/60)/m.km:null})).sort((a,b)=>b.key.localeCompare(a.key));
 }
+// Standard race/training distances, with a tolerance band to absorb GPS drift
+const DISTANCE_MILESTONES=[
+  {label:"2 Mile",   meters:3219},
+  {label:"5K",       meters:5000},
+  {label:"5 Mile",   meters:8047},
+  {label:"10K",      meters:10000},
+  {label:"15K",      meters:15000},
+  {label:"Half Marathon", meters:21098},
+  {label:"30K",      meters:30000},
+  {label:"Marathon", meters:42195},
+];
+const DISTANCE_TOLERANCE_PCT=0.03;
+// Count runs matching each standard distance (within ±3%) -> [{label, meters, count}]
+function countRunsByDistance(runs){
+  return DISTANCE_MILESTONES.map(m=>({
+    ...m,
+    count: runs.filter(r=>Math.abs(r.distance-m.meters)<=m.meters*DISTANCE_TOLERANCE_PCT).length,
+  }));
+}
 // Group strength sessions by calendar month -> [{key:"YYYY-MM", count, durationSec}], most recent first
 function groupStrengthByMonth(sessions){
   const map={};
@@ -344,6 +363,7 @@ function RunsTab({runs}){
 
   const monthly=groupRunsByMonth(runs).slice(0,12);
   const maxMonthKm=Math.max(...monthly.map(m=>m.km),1);
+  const milestones=countRunsByDistance(runs);
 
   const statCard=(value,label,color=C.textSecondary)=>(
     <div style={S.statCard}>
@@ -365,6 +385,16 @@ function RunsTab({runs}){
       {statCard(runs.length,"Total runs",C.orange)}
       {statCard(<>{totalRunKm.toFixed(0)}<span style={{fontSize:12,fontWeight:"500"}}> km</span></>,"Total distance")}
       {statCard(fmtPace(overallPace),"Avg pace")}
+    </div>
+
+    <div style={S.sectionLabel}>Distance milestones</div>
+    <div style={{...S.card,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+      {milestones.map(m=>(
+        <div key={m.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:m.count>0?C.orangeLight:C.bg,border:`1px solid ${m.count>0?C.orangeBorder:C.border}`,borderRadius:8}}>
+          <span style={{fontSize:13,color:m.count>0?C.text:C.textMuted,fontWeight:"500"}}>{m.label}</span>
+          <span style={{fontSize:16,fontWeight:"700",color:m.count>0?C.orange:C.textFaint}}>{m.count}</span>
+        </div>
+      ))}
     </div>
 
     {monthly.length>0&&(<>
