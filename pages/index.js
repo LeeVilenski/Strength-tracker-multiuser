@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
-import { MUSCLE_GROUPS as BUILTIN_MUSCLE_GROUPS, computeMuscleStats, detectPBs, generateMonthlyChallenge, xpForExercise, totalRepsFromValue, bestWeightFromValue, summariseSets } from "../lib/game";
+import { MUSCLE_GROUPS as BUILTIN_MUSCLE_GROUPS, computeMuscleStats, diffMuscleStats, detectPBs, generateMonthlyChallenge, xpForExercise, totalRepsFromValue, bestWeightFromValue, summariseSets } from "../lib/game";
 import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES, getExercisesByCategory } from "../lib/exercises";
 import BodyMap from "../components/BodyMap";
 
@@ -587,9 +587,39 @@ function PBToast({pbs,allExercises,onDismiss}){
   const weightPBs=pbs.filter(p=>p.endsWith("_weight")).map(p=>allExercises.find(e=>e.id===p.replace("_weight",""))?.label).filter(Boolean);
   const firstEver=pbs.some(p=>p.endsWith("_first"));
   return(
-    <div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:"#111827",color:"#fff",borderRadius:12,padding:"12px 20px",zIndex:1000,boxShadow:"0 8px 24px rgba(0,0,0,0.2)",display:"flex",gap:10,alignItems:"center",maxWidth:340,width:"90%"}}>
+    <div style={{background:"#111827",color:"#fff",borderRadius:12,padding:"12px 20px",boxShadow:"0 8px 24px rgba(0,0,0,0.2)",display:"flex",gap:10,alignItems:"center",width:"100%"}}>
       <span style={{fontSize:20}}>🏆</span>
       <div><div style={{fontSize:13,fontWeight:"700",color:"#fbbf24"}}>Personal Best!</div><div style={{fontSize:12,color:"#d1d5db",marginTop:2}}>{repPBs.length>0&&<div>Reps: {repPBs.join(", ")}</div>}{weightPBs.length>0&&<div>Weight: {weightPBs.join(", ")}</div>}{firstEver&&<div>First time logging!</div>}</div></div>
+    </div>
+  );
+}
+
+function XpToast({gain,muscleGroups,onDismiss}){
+  useEffect(()=>{if(gain){const t=setTimeout(onDismiss,4500);return()=>clearTimeout(t);}},[gain]);
+  if(!gain||(gain.totalXp<=0&&gain.levelUps.length===0))return null;
+  return(
+    <div style={{background:"#111827",color:"#fff",borderRadius:12,padding:"12px 20px",boxShadow:"0 8px 24px rgba(0,0,0,0.2)",display:"flex",gap:10,alignItems:"center",width:"100%"}}>
+      <span style={{fontSize:20}}>⚡</span>
+      <div>
+        {gain.totalXp>0&&<div style={{fontSize:13,fontWeight:"700",color:"#34d399"}}>+{gain.totalXp} XP</div>}
+        {gain.levelUps.length>0&&<div style={{fontSize:12,color:"#d1d5db",marginTop:2}}>
+          {gain.levelUps.map(lu=>{
+            const mg=muscleGroups[lu.muscle]||{emoji:"💪",label:lu.muscle};
+            return <div key={lu.muscle}>{mg.emoji} {mg.label} leveled up to Lv {lu.toLevel}!</div>;
+          })}
+        </div>}
+      </div>
+    </div>
+  );
+}
+
+function ToastStack({pbs,xpGain,allExercises,muscleGroups,onDismissPbs,onDismissXp}){
+  const showXp=xpGain&&(xpGain.totalXp>0||xpGain.levelUps.length>0);
+  if(!pbs.length&&!showXp)return null;
+  return(
+    <div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",zIndex:1000,display:"flex",flexDirection:"column",gap:10,width:"90%",maxWidth:340}}>
+      <PBToast pbs={pbs} allExercises={allExercises} onDismiss={onDismissPbs}/>
+      <XpToast gain={xpGain} muscleGroups={muscleGroups} onDismiss={onDismissXp}/>
     </div>
   );
 }
@@ -868,6 +898,7 @@ export default function App(){
   const [insight,setInsight]=useState("");
   const [insightLoading,setInsightLoading]=useState(false);
   const [pbs,setPbs]=useState([]);
+  const [xpGain,setXpGain]=useState(null);
   const [manualSessions,setManualSessions]=useState(()=>{try{return JSON.parse(localStorage.getItem("manual_sessions_v1")||"[]");}catch{return [];}});
   const [showLogManual,setShowLogManual]=useState(false);
   const [expandedMuscle,setExpandedMuscle]=useState(null);
@@ -922,7 +953,11 @@ export default function App(){
     try { localStorage.setItem("manual_sessions_v1", JSON.stringify(updated)); } catch {}
     // Save exercise notes using the session id
     await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({activity_id:session.id,notes:noteData})});
-    setNotes(prev=>({...prev,[session.id]:noteData}));
+    const updatedNotes={...notes,[session.id]:noteData};
+    const before=computeMuscleStats(notes,allStrength,allExercises);
+    const after=computeMuscleStats(updatedNotes,[...allStrength,session],allExercises);
+    setNotes(updatedNotes);
+    setXpGain(diffMuscleStats(before,after));
   }
 
   function deleteManualSession(id) {
@@ -935,9 +970,13 @@ export default function App(){
     const newPBs=detectPBs(enrichForm.exercises,notes,activityId);
     setSaving(true);
     await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({activity_id:activityId,notes:enrichForm})});
-    setNotes(prev=>({...prev,[activityId]:enrichForm}));
+    const updatedNotes={...notes,[activityId]:enrichForm};
+    const before=computeMuscleStats(notes,allStrength,allExercises);
+    const after=computeMuscleStats(updatedNotes,allStrength,allExercises);
+    setNotes(updatedNotes);
     setSaving(false);setEnriching(null);
     if(newPBs.length>0)setPbs(newPBs);
+    setXpGain(diffMuscleStats(before,after));
   }
 
   function openEnrich(activity){setEnriching(activity.id);setEnrichForm(notes[activity.id]||{exercises:{},sessionNotes:""});}
@@ -1154,7 +1193,7 @@ export default function App(){
 
       </div>
     </div>
-    <PBToast pbs={pbs} allExercises={allExercises} onDismiss={()=>setPbs([])}/>
+    <ToastStack pbs={pbs} xpGain={xpGain} allExercises={allExercises} muscleGroups={allMuscleGroups} onDismissPbs={()=>setPbs([])} onDismissXp={()=>setXpGain(null)}/>
     {showLogManual&&<LogManualModal allExercises={allExercises} onSave={saveManualSession} onClose={()=>setShowLogManual(false)}/>}
     {showAddMuscle&&<AddMuscleModal onSave={addCustomMuscle} onClose={()=>setShowAddMuscle(false)}/>}
     {showAddExercise&&<AddExerciseModal allMuscleGroups={allMuscleGroups} onSave={addCustomExercise} onClose={()=>setShowAddExercise(false)}/>}
