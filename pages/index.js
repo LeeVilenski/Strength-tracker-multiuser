@@ -33,6 +33,18 @@ function groupRunsByMonth(runs){
   }
   return Object.values(map).map(m=>({...m,pace:m.km>0?(m.durationSec/60)/m.km:null})).sort((a,b)=>b.key.localeCompare(a.key));
 }
+// Group strength sessions by calendar month -> [{key:"YYYY-MM", count, durationSec}], most recent first
+function groupStrengthByMonth(sessions){
+  const map={};
+  for(const s of sessions){
+    if(!s.date) continue;
+    const key=s.date.slice(0,7);
+    if(!map[key]) map[key]={key,count:0,durationSec:0};
+    map[key].count++;
+    map[key].durationSec+=s.duration;
+  }
+  return Object.values(map).sort((a,b)=>b.key.localeCompare(a.key));
+}
 function hrColor(hr){if(!hr)return "#9ca3af";if(hr<120)return "#16a34a";if(hr<140)return "#65a30d";if(hr<160)return "#d97706";if(hr<175)return "#ea580c";return "#dc2626";}
 function isStrengthType(t){return["WeightTraining","Workout","Crossfit","HighIntensityIntervalTraining","Yoga","Pilates","RockClimbing"].includes(t);}
 function daysAgo(d){if(!d)return null;return Math.floor((new Date()-new Date(d+"T12:00:00"))/86400000);}
@@ -1148,6 +1160,21 @@ export default function App(){
   const challenge=generateMonthlyChallenge(muscleStats,new Date().getMonth(),allExercises);
   const ratio=Math.round(runs.length/Math.max(allStrength.length,1));
 
+  const currentYear=new Date().getFullYear();
+  const ytdStrength=allStrength.filter(s=>s.date?.startsWith(String(currentYear)));
+  const totalStrengthSec=allStrength.reduce((acc,s)=>acc+s.duration,0);
+  const ytdStrengthSec=ytdStrength.reduce((acc,s)=>acc+s.duration,0);
+  const avgStrengthSec=allStrength.length>0?totalStrengthSec/allStrength.length:0;
+  const ytdAvgStrengthSec=ytdStrength.length>0?ytdStrengthSec/ytdStrength.length:0;
+  const monthlyStrength=groupStrengthByMonth(allStrength).slice(0,12);
+  const maxMonthStrengthSec=Math.max(...monthlyStrength.map(m=>m.durationSec),1);
+  const statCard=(value,label,color=C.textSecondary)=>(
+    <div style={S.statCard}>
+      <div style={{fontSize:18,fontWeight:"700",color}}>{value}</div>
+      <div style={{fontSize:11,color:C.textMuted,marginTop:4,fontWeight:"500"}}>{label}</div>
+    </div>
+  );
+
   if(loading)return <div style={{...S.page,display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh"}}><div style={{color:C.textMuted,fontSize:14}}>Loading...</div></div>;
   if(!connected)return(
     <div style={{...S.page,display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",padding:32}}>
@@ -1296,6 +1323,39 @@ export default function App(){
         </>)}
 
         {view==="strength"&&(<>
+          {allStrength.length>0&&(<>
+            <div style={S.sectionLabel}>{currentYear} so far</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
+              {statCard(ytdStrength.length,"YTD sessions",C.blue)}
+              {statCard(fmtDuration(ytdStrengthSec),"YTD time")}
+              {statCard(fmtDuration(ytdAvgStrengthSec),"Avg session")}
+            </div>
+
+            <div style={S.sectionLabel}>All time</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
+              {statCard(allStrength.length,"Total sessions",C.blue)}
+              {statCard(fmtDuration(totalStrengthSec),"Total time")}
+              {statCard(fmtDuration(avgStrengthSec),"Avg session")}
+            </div>
+
+            {monthlyStrength.length>0&&(<>
+              <div style={S.sectionLabel}>By month</div>
+              <div style={S.card}>
+                {monthlyStrength.map((m,idx)=>(
+                  <div key={m.key} style={{marginBottom:idx<monthlyStrength.length-1?10:0}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:3,gap:8}}>
+                      <span style={{fontSize:13,color:C.text,fontWeight:"500",whiteSpace:"nowrap"}}>{monthLabel(m.key)}</span>
+                      <span style={{fontSize:12,color:C.textMuted,whiteSpace:"nowrap"}}>{m.count} session{m.count===1?"":"s"} · {fmtDuration(m.durationSec)}</span>
+                    </div>
+                    <div style={{height:6,background:C.bg,borderRadius:3,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:`${Math.max(2,(m.durationSec/maxMonthStrengthSec)*100)}%`,background:C.blue,borderRadius:3}}/>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>)}
+          </>)}
+
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
             <div style={S.sectionLabel}>Sessions ({allStrength.length})</div>
             <div style={{display:"flex",gap:6}}>
@@ -1314,7 +1374,7 @@ export default function App(){
                     <div style={{fontSize:15,fontWeight:"600",color:C.text}}>{s.name}</div>
                     {s.isManual&&<span style={{fontSize:10,background:C.blueLight,color:C.blue,border:`1px solid ${C.blueBorder}`,borderRadius:20,padding:"1px 7px",fontWeight:"600",flexShrink:0}}>Manual</span>}
                   </div>
-                  <div style={{fontSize:12,color:C.textMuted,marginTop:3}}>{dayLabel(s.date)}</div>
+                  <div style={{fontSize:12,color:C.textMuted,marginTop:3}}>{dayLabel(s.date)}{!s.isManual&&<a href={`https://www.strava.com/activities/${s.id}`} target="_blank" rel="noopener noreferrer" style={{marginLeft:8,color:C.textFaint,textDecoration:"none"}}>↗ Strava</a>}</div>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
                   <div style={{fontSize:16,color:C.blue,fontWeight:"600"}}>{fmtDuration(s.duration)}</div>
