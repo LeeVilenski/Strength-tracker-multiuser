@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
-import { MUSCLE_GROUPS as BUILTIN_MUSCLE_GROUPS, computeMuscleStats, diffMuscleStats, detectPBs, generateMonthlyChallenge, xpForExercise, totalRepsFromValue, bestWeightFromValue, summariseSets } from "../lib/game";
+import { MUSCLE_GROUPS as BUILTIN_MUSCLE_GROUPS, computeMuscleStats, diffMuscleStats, detectPBs, generateMonthlyChallenge, computeChallengeProgress, xpForExercise, totalRepsFromValue, bestWeightFromValue, summariseSets } from "../lib/game";
 import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES, getExercisesByCategory } from "../lib/exercises";
 import BodyMap from "../components/BodyMap";
 
@@ -653,38 +653,11 @@ function AddExerciseModal({allMuscleGroups,onSave,onClose}){
 // ── Challenge card — prominent version ──
 function ChallengeCard({challenge,notes,strength}){
   if(!challenge)return null;
-  const {mg,title,description,type,target,unit,exId,exLabel}=challenge;
+  const {mg,title,description,type,exId,exLabel}=challenge;
   const now=new Date();
   const daysLeft=new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate();
   const monthName=now.toLocaleDateString("en-GB",{month:"long"});
-  const thisMonth=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
-  const monthStrength=strength.filter(s=>s.date?.startsWith(thisMonth));
-  const monthNotes=monthStrength.map(s=>notes[s.id]).filter(Boolean);
-
-  // Compute progress
-  let current=0;
-  if(type==="frequency"){
-    current=monthNotes.filter(n=>n?.exercises?.[exId]).length;
-  } else if(type==="pb"){
-    const allVals=Object.values(notes).map(n=>totalRepsFromValue(n?.exercises?.[exId]));
-    const monthVals=monthNotes.map(n=>totalRepsFromValue(n?.exercises?.[exId]));
-    const globalMax=Math.max(0,...allVals);
-    const monthMax=Math.max(0,...monthVals);
-    current=monthMax>0&&monthMax>=globalMax?1:0;
-  } else if(type==="streak"){
-    const weeksWithSessions=new Set(
-      monthStrength.filter(s=>monthNotes.find(n=>n===notes[s.id])?.exercises?.[exId]).map(s=>{
-        const d=new Date(s.date+"T12:00:00");
-        return Math.floor((d-new Date(d.getFullYear(),d.getMonth(),1))/604800000);
-      })
-    );
-    current=weeksWithSessions.size;
-  } else if(type==="volume"){
-    current=monthNotes.reduce((acc,n)=>acc+totalRepsFromValue(n?.exercises?.[exId]),0);
-  }
-
-  const pct=Math.min(100,Math.round((current/target)*100));
-  const done=current>=target;
+  const {current,target,pct,done}=computeChallengeProgress(challenge,notes,strength);
 
   // Reward tiers for display
   const tiers=[
@@ -721,7 +694,7 @@ function ChallengeCard({challenge,notes,strength}){
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
             <span style={{fontSize:12,color:C.textMuted,fontWeight:"500"}}>Progress</span>
             <span style={{fontSize:13,fontWeight:"700",color:done?C.green:mg.color}}>
-              {type==="volume"?`${current} / ${target} reps`:type==="pb"?(done?"PB achieved":"Not yet"):type==="streak"?`${current} / ${target} weeks`:`${current} / ${target} sessions`}
+              {type==="volume"?`${current} / ${target} reps`:type==="pb"?(done?`${current} reps — new PB! 🎉`:`${current} / ${target} reps`):type==="streak"?`${current} / ${target} weeks`:`${current} / ${target} sessions`}
             </span>
           </div>
           <div style={{background:"rgba(0,0,0,0.08)",borderRadius:99,height:10,overflow:"hidden"}}>
@@ -776,13 +749,28 @@ function XpToast({gain,muscleGroups,onDismiss}){
   );
 }
 
-function ToastStack({pbs,xpGain,allExercises,muscleGroups,onDismissPbs,onDismissXp}){
+function ChallengeToast({challenge,onDismiss}){
+  useEffect(()=>{if(challenge){const t=setTimeout(onDismiss,5000);return()=>clearTimeout(t);}},[challenge]);
+  if(!challenge)return null;
+  return(
+    <div style={{background:challenge.mg.color,color:"#fff",borderRadius:12,padding:"12px 20px",boxShadow:"0 8px 24px rgba(0,0,0,0.2)",display:"flex",gap:10,alignItems:"center",width:"100%"}}>
+      <span style={{fontSize:20}}>🏆</span>
+      <div>
+        <div style={{fontSize:13,fontWeight:"700"}}>Challenge complete!</div>
+        <div style={{fontSize:12,color:"rgba(255,255,255,0.85)",marginTop:2}}>{challenge.title}</div>
+      </div>
+    </div>
+  );
+}
+
+function ToastStack({pbs,xpGain,challengeDone,allExercises,muscleGroups,onDismissPbs,onDismissXp,onDismissChallenge}){
   const showXp=xpGain&&(xpGain.totalXp>0||xpGain.levelUps.length>0);
-  if(!pbs.length&&!showXp)return null;
+  if(!pbs.length&&!showXp&&!challengeDone)return null;
   return(
     <div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",zIndex:1000,display:"flex",flexDirection:"column",gap:10,width:"90%",maxWidth:340}}>
       <PBToast pbs={pbs} allExercises={allExercises} onDismiss={onDismissPbs}/>
       <XpToast gain={xpGain} muscleGroups={muscleGroups} onDismiss={onDismissXp}/>
+      <ChallengeToast challenge={challengeDone} onDismiss={onDismissChallenge}/>
     </div>
   );
 }
@@ -1062,6 +1050,7 @@ export default function App(){
   const [insightLoading,setInsightLoading]=useState(false);
   const [pbs,setPbs]=useState([]);
   const [xpGain,setXpGain]=useState(null);
+  const [challengeDone,setChallengeDone]=useState(null);
   const [manualSessions,setManualSessions]=useState(()=>{try{return JSON.parse(localStorage.getItem("manual_sessions_v1")||"[]");}catch{return [];}});
   const [showLogManual,setShowLogManual]=useState(false);
   const [expandedMuscle,setExpandedMuscle]=useState(null);
@@ -1117,10 +1106,16 @@ export default function App(){
     // Save exercise notes using the session id
     await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({activity_id:session.id,notes:noteData})});
     const updatedNotes={...notes,[session.id]:noteData};
+    const updatedStrength=[...allStrength,session];
     const before=computeMuscleStats(notes,allStrength,allExercises);
-    const after=computeMuscleStats(updatedNotes,[...allStrength,session],allExercises);
+    const after=computeMuscleStats(updatedNotes,updatedStrength,allExercises);
     setNotes(updatedNotes);
     setXpGain(diffMuscleStats(before,after));
+    if(challenge){
+      const beforeProgress=computeChallengeProgress(challenge,notes,allStrength);
+      const afterProgress=computeChallengeProgress(challenge,updatedNotes,updatedStrength);
+      if(!beforeProgress.done&&afterProgress.done)setChallengeDone(challenge);
+    }
   }
 
   function deleteManualSession(id) {
@@ -1140,6 +1135,11 @@ export default function App(){
     setSaving(false);setEnriching(null);
     if(newPBs.length>0)setPbs(newPBs);
     setXpGain(diffMuscleStats(before,after));
+    if(challenge){
+      const beforeProgress=computeChallengeProgress(challenge,notes,allStrength);
+      const afterProgress=computeChallengeProgress(challenge,updatedNotes,allStrength);
+      if(!beforeProgress.done&&afterProgress.done)setChallengeDone(challenge);
+    }
   }
 
   function openEnrich(activity){setEnriching(activity.id);setEnrichForm(notes[activity.id]||{exercises:{},sessionNotes:""});}
@@ -1392,7 +1392,7 @@ export default function App(){
 
       </div>
     </div>
-    <ToastStack pbs={pbs} xpGain={xpGain} allExercises={allExercises} muscleGroups={allMuscleGroups} onDismissPbs={()=>setPbs([])} onDismissXp={()=>setXpGain(null)}/>
+    <ToastStack pbs={pbs} xpGain={xpGain} challengeDone={challengeDone} allExercises={allExercises} muscleGroups={allMuscleGroups} onDismissPbs={()=>setPbs([])} onDismissXp={()=>setXpGain(null)} onDismissChallenge={()=>setChallengeDone(null)}/>
     {showLogManual&&<LogManualModal allExercises={allExercises} onSave={saveManualSession} onClose={()=>setShowLogManual(false)}/>}
     {showAddMuscle&&<AddMuscleModal onSave={addCustomMuscle} onClose={()=>setShowAddMuscle(false)}/>}
     {showAddExercise&&<AddExerciseModal allMuscleGroups={allMuscleGroups} onSave={addCustomExercise} onClose={()=>setShowAddExercise(false)}/>}
