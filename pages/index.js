@@ -17,6 +17,7 @@ function slugify(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^
 function fmtDist(m){return m>=1000?`${(m/1000).toFixed(1)}km`:`${Math.round(m)}m`;}
 function fmtDuration(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?`${h}h ${m}m`:`${m}min`;}
 function fmtPace(minKm){if(!minKm||isNaN(minKm))return "—";const m=Math.floor(minKm);const s=Math.round((minKm-m)*60);return `${m}:${String(s).padStart(2,"0")}/km`;}
+function fmtClock(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=Math.floor(s%60);return h>0?`${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`:`${m}:${String(sec).padStart(2,"0")}`;}
 function dayLabel(d){if(!d)return "";return new Date(d+"T00:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});}
 function monthLabel(monthKey){const [y,m]=monthKey.split("-").map(Number);return new Date(y,m-1,1).toLocaleDateString("en-GB",{month:"long",year:"numeric"});}
 
@@ -56,6 +57,12 @@ function countRunsByDistance(runs){
     };
   });
 }
+// Matches lib/db.js normalizeEffortName — kept local so this client bundle
+// doesn't pull in the server-only db module.
+function normalizeEffortName(s){return String(s||"").toLowerCase().replace(/[\s-]/g,"");}
+// Strava best-effort names (normalized) that have an equivalent in DISTANCE_BUCKETS
+const STRAVA_EFFORT_KEYS=new Set(["2mile","5k","10k","15k","halfmarathon","30k","marathon"]);
+function hasStravaEffort(bucket){return STRAVA_EFFORT_KEYS.has(normalizeEffortName(bucket.label));}
 // Fastest runs (by pace) falling within a distance bucket, capped at `limit`
 function topRunsByPace(runs, bucket, next, limit=15){
   return runs
@@ -359,6 +366,26 @@ function StrengthStatsPanel({strength}){
 // ── Runs tab: YTD/all-time stats, monthly breakdown, run list linking out to Strava ──
 function RunsTab({runs}){
   const [expandedDistance,setExpandedDistance]=useState(null);
+  const [bestEfforts,setBestEfforts]=useState({});
+
+  useEffect(()=>{
+    const bucket=DISTANCE_BUCKETS.find(b=>b.label===expandedDistance);
+    if(!bucket||!hasStravaEffort(bucket))return;
+    let cancelled=false,timer=null;
+    const poll=async()=>{
+      try{
+        const res=await fetch(`/api/best-efforts?name=${encodeURIComponent(bucket.label)}`);
+        if(!res.ok)return;
+        const data=await res.json();
+        if(cancelled)return;
+        setBestEfforts(prev=>({...prev,[bucket.label]:data}));
+        if(data.remaining>0)timer=setTimeout(poll,10000);
+      }catch{}
+    };
+    poll();
+    return()=>{cancelled=true;if(timer)clearTimeout(timer);};
+  },[expandedDistance]);
+
   if(runs.length===0)return(
     <div style={{...S.card,color:C.textMuted,fontSize:14,textAlign:"center",padding:"40px 16px"}}>No runs yet.</div>
   );
@@ -404,7 +431,15 @@ function RunsTab({runs}){
     <div style={{...S.card,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
       {milestones.map((m,i)=>{
         const isOpen=expandedDistance===m.label;
-        const top=isOpen?topRunsByPace(runs,m,DISTANCE_BUCKETS[i+1]):[];
+        const effortData=bestEfforts[m.label];
+        const efforts=(effortData?.efforts||[]).map(e=>({
+          id:e.activityId, name:e.activityName, date:e.date,
+          distance:e.distance, duration:e.movingTime,
+          pace:(e.movingTime/60)/(e.distance/1000),
+        }));
+        const top=isOpen?(efforts.length>0?efforts:topRunsByPace(runs,m,DISTANCE_BUCKETS[i+1])):[];
+        const remaining=isOpen?(effortData?.remaining||0):0;
+        const showIndexing=isOpen&&hasStravaEffort(m)&&remaining>0;
         return(<div key={m.label} style={{display:"contents"}}>
           <div onClick={()=>m.count>0&&setExpandedDistance(isOpen?null:m.label)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:m.count>0?C.orangeLight:C.bg,border:`1px solid ${isOpen?C.orange:(m.count>0?C.orangeBorder:C.border)}`,borderRadius:8,cursor:m.count>0?"pointer":"default"}}>
             <span style={{fontSize:13,color:m.count>0?C.text:C.textMuted,fontWeight:"500"}}>{m.label}{m.count>0&&<span style={{marginLeft:6,color:C.textFaint,fontSize:10}}>{isOpen?"▲":"▼"}</span>}</span>
@@ -412,9 +447,9 @@ function RunsTab({runs}){
           </div>
           {isOpen&&(
             <div style={{gridColumn:"1 / -1",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,padding:"4px 10px"}}>
-              <div style={{fontSize:11,color:C.textMuted,fontWeight:"600",textTransform:"uppercase",letterSpacing:"0.05em",padding:"8px 0 4px"}}>Fastest {m.label} runs</div>
+              <div style={{fontSize:11,color:C.textMuted,fontWeight:"600",textTransform:"uppercase",letterSpacing:"0.05em",padding:"8px 0 4px"}}>Fastest {m.label} {efforts.length>0?"splits":"runs"}</div>
               {top.map((r,idx)=>(
-                <a key={r.id} href={`https://www.strava.com/activities/${r.id}`} target="_blank" rel="noopener noreferrer"
+                <a key={`${r.id}-${idx}`} href={`https://www.strava.com/activities/${r.id}`} target="_blank" rel="noopener noreferrer"
                   style={{display:"flex",gap:10,alignItems:"center",textDecoration:"none",color:"inherit",padding:"6px 0",borderTop:`1px solid ${C.border}`}}>
                   <span style={{fontSize:11,color:C.textFaint,width:18,flexShrink:0}}>{idx+1}</span>
                   <div style={{flex:1,minWidth:0}}>
@@ -422,11 +457,12 @@ function RunsTab({runs}){
                     <div style={{fontSize:11,color:C.textMuted}}>{dayLabel(r.date)} · {fmtDist(r.distance)}</div>
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
-                    <div style={{fontSize:13,color:C.orange,fontWeight:"600"}}>{fmtDuration(r.duration)}</div>
+                    <div style={{fontSize:13,color:C.orange,fontWeight:"600"}}>{fmtClock(r.duration)}</div>
                     <div style={{fontSize:11,color:C.textMuted}}>{fmtPace(r.pace)}</div>
                   </div>
                 </a>
               ))}
+              {showIndexing&&<div style={{fontSize:11,color:C.textFaint,textAlign:"center",padding:"8px 0 4px"}}>Indexing {remaining} more run{remaining===1?"":"s"}…</div>}
             </div>
           )}
         </div>);

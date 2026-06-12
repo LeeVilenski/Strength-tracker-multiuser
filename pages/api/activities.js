@@ -1,6 +1,7 @@
 import {
   getValidAccessToken, fetchAllStravaActivities, shapeActivity, isStrength, isRun,
   getCachedActivities, getMostRecentCachedDate, upsertActivities, getCacheCount,
+  backfillBestEfforts,
 } from "../../lib/db";
 
 export default async function handler(req, res) {
@@ -21,6 +22,8 @@ export default async function handler(req, res) {
 
       // Background incremental sync — don't await, return fast
       incrementalSync(accessToken).catch(() => {});
+      // Passively chip away at best-efforts backfill, a couple at a time
+      backfillBestEfforts(2).catch(() => {});
 
       return res.status(200).json({ runs, strength, total: cached.length, fromCache: true });
     }
