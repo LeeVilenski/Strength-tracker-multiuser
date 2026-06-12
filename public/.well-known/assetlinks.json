@@ -3,6 +3,9 @@
   "target": {
     "namespace": "android_app",
     "package_name": "app.vercel.eds_strength_tracker.twa",
-    "sha256_cert_fingerprints": ["5B:32:24:66:87:AE:ED:E7:F9:3A:2C:BE:72:14:52:7E:85:48:45:D4:22:77:36:DC:E6:7E:70:2C:9C:54:2C:B7"]
+    "sha256_cert_fingerprints": [
+      "5B:32:24:66:87:AE:ED:E7:F9:3A:2C:BE:72:14:52:7E:85:48:45:D4:22:77:36:DC:E6:7E:70:2C:9C:54:2C:B7",
+      "D0:B2:9B:9C:30:F8:50:86:CB:B5:17:B6:1B:95:F5:28:82:B9:A5:4F:F1:72:2A:B4:E0:38:40:7A:37:3F:5C:C3"
+    ]
   }
 }]
