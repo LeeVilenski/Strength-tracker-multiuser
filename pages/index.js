@@ -436,7 +436,7 @@ function RunsTab({runs}){
         const effortData=bestEfforts[m.label];
         const efforts=(effortData?.efforts||[]).map(e=>({
           id:e.activityId, name:e.activityName, date:e.date,
-          distance:e.distance, duration:e.movingTime,
+          distance:e.activityDistance, duration:e.movingTime,
           pace:(e.movingTime/60)/(e.distance/1000),
         }));
         const top=isOpen?(efforts.length>0?efforts:topRunsByPace(runs,m,DISTANCE_BUCKETS[i+1])):[];
