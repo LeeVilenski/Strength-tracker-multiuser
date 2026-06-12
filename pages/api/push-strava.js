@@ -2,12 +2,16 @@ import { getCustomExercises, createStravaActivity, uploadStravaActivity, pollStr
 import { EXERCISE_LIBRARY } from "../../lib/exercises";
 import { buildExerciseBlock } from "../../lib/description";
 import { buildWorkoutFit } from "../../lib/fit-builder";
+import { pinOk } from "../../lib/pin";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const { session, notes } = req.body;
+    const { session, notes, pin } = req.body;
+    if (!pinOk(pin)) {
+      return res.status(401).json({ error: "Incorrect PIN", pinRequired: true });
+    }
     if (!session?.id || !session?.date) {
       return res.status(400).json({ error: "session required" });
     }

@@ -10,6 +10,18 @@ The header has five tabs: **dashboard**, **muscles**, **progress**, **strength**
 
 ---
 
+## PIN lock for Strava-writing actions
+
+If `APP_PIN` is set (in Vercel env vars), the two actions that actually change something on Strava — **Push to Strava** and renaming an activity (the editable title on a session) — are gated behind a PIN prompt.
+
+- The first time either is used in a browser session, a bottom-sheet asks for the PIN.
+- A correct PIN is remembered for the rest of that browser session (`sessionStorage`) — no need to re-enter it every time.
+- A **🔓 Lock Strava** button appears in the header while unlocked; tap it to re-lock before handing the device to someone else (e.g. when demoing the app).
+- Everything else — viewing data, opening Strava links, editing exercise breakdowns/notes, drafts/templates, custom exercises, removing cached sessions — is unaffected, since none of that writes to Strava.
+- If `APP_PIN` isn't set, none of this appears and these actions behave as before.
+
+---
+
 ## Dashboard
 
 - **Monthly Challenge card** — a new challenge is generated each month, targeting whichever muscle group needs the most attention (untrained groups first, then your lowest-level trained group). Challenge types rotate monthly:

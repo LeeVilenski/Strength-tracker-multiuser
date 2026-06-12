@@ -78,6 +78,7 @@ These are the secret keys that let your app talk to Strava, the database, and op
 | `STRAVA_CLIENT_SECRET` | The Client Secret from Step 2 |
 | `NEXT_PUBLIC_APP_URL` | Your Vercel URL from Step 3, e.g. `https://eds-strength-tracker-abc.vercel.app` — no trailing slash |
 | `ANTHROPIC_API_KEY` | From [console.anthropic.com](https://console.anthropic.com) — optional, skip if you don't want the AI coach |
+| `APP_PIN` | Optional — a short PIN (e.g. `1234`) required before pushing a session to Strava or renaming a Strava activity. Recommended if you ever let other people use the app, e.g. to show it off. Skip to leave these actions unprotected. |
 
 > **Important:** `NEXT_PUBLIC_APP_URL` must exactly match your Vercel URL — copy and paste it rather than typing it.
 
@@ -173,6 +174,8 @@ Manually logged sessions can include heart rate data in two ways:
 ### Pushing a manual session to Strava
 
 If a manually logged session has an exercise breakdown and/or imported HR data, you can tap **Push to Strava** on it to create a real Strava activity for it. This builds a `.fit` file containing your sets (reps/weight per exercise) and, if you imported one, the full heart rate stream — so the Strava activity shows both the Strength Training set breakdown and an HR graph. Once pushed, the session is linked to its new Strava activity and won't be duplicated.
+
+If you've set `APP_PIN` (see Step 5), the first time you push a session or rename an activity in a browser session you'll be asked for the PIN. Enter it once and it's remembered for the rest of that browser session — handy if you want to demo the app to someone without letting them write to your Strava account. A **🔓 Lock Strava** button appears in the header once unlocked, so you can re-lock it before handing the device over.
 
 ### Removing old sessions
 

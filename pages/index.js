@@ -1348,6 +1348,28 @@ function ApplyDraftModal({draft, sessions, notes, onSelect, onClose}){
   );
 }
 
+// ── PIN prompt — gates actions that write to Strava (push / rename) ──
+function PinModal({error, onSubmit, onClose}){
+  const [pin,setPin]=useState("");
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:400}} onClick={onClose}>
+      <div style={{background:C.surface,borderRadius:"16px 16px 0 0",width:"100%",maxWidth:520,padding:"20px 20px 36px"}} onClick={e=>e.stopPropagation()}>
+        <div style={{width:36,height:4,background:"#e2e8f0",borderRadius:2,margin:"0 auto 16px"}}/>
+        <div style={{fontSize:16,fontWeight:"700",color:C.text,marginBottom:6}}>Enter PIN</div>
+        <div style={{fontSize:12,color:C.textMuted,marginBottom:14}}>This action will make a change on Strava.</div>
+        <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus style={S.input} value={pin}
+          onChange={e=>setPin(e.target.value)}
+          onKeyDown={e=>{if(e.key==="Enter")onSubmit(pin);}}/>
+        {error&&<div style={{fontSize:12,color:C.red,marginTop:6}}>{error}</div>}
+        <div style={{display:"flex",gap:8,marginTop:14}}>
+          <button onClick={()=>onSubmit(pin)} disabled={!pin} style={{...S.btn("primary"),flex:1,opacity:!pin?0.5:1}}>Unlock</button>
+          <button onClick={onClose} style={S.btn("ghost")}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ──
 export default function App(){
   const [view,setView]=useState("dashboard");
@@ -1370,6 +1392,8 @@ export default function App(){
   const [stravaError,setStravaError]=useState(null);
   const [manualSessions,setManualSessions]=useState(()=>{try{return JSON.parse(localStorage.getItem("manual_sessions_v1")||"[]");}catch{return [];}});
   const [pushingToStrava,setPushingToStrava]=useState(null);
+  const [pinPrompt,setPinPrompt]=useState(null);
+  const [pinUnlocked,setPinUnlocked]=useState(()=>{try{return !!sessionStorage.getItem("strava_pin");}catch{return false;}});
   const [showLogManual,setShowLogManual]=useState(false);
   const [expandedMuscle,setExpandedMuscle]=useState(null);
   const [showAddMuscle,setShowAddMuscle]=useState(false);
@@ -1477,10 +1501,21 @@ export default function App(){
     try { localStorage.setItem("manual_sessions_v1", JSON.stringify(updated)); } catch {}
   }
 
-  async function pushManualSessionToStrava(session) {
+  function getStravaPin(){ try{return sessionStorage.getItem("strava_pin");}catch{return null;} }
+  function unlockStrava(pin){ try{sessionStorage.setItem("strava_pin",pin);}catch{} setPinUnlocked(true); }
+  function lockStrava(){ try{sessionStorage.removeItem("strava_pin");}catch{} setPinUnlocked(false); }
+
+  async function pushManualSessionToStrava(session, pinOverride) {
     setPushingToStrava(session.id);
     try {
-      const res = await fetch("/api/push-strava",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session,notes:notes[session.id]})}).then(r=>r.json());
+      const pin = pinOverride ?? getStravaPin() ?? "";
+      const res = await fetch("/api/push-strava",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session,notes:notes[session.id],pin})}).then(r=>r.json());
+      if(res.pinRequired){
+        lockStrava();
+        setPinPrompt({error:pin?"Incorrect PIN":null, retry:newPin=>pushManualSessionToStrava(session,newPin)});
+        return;
+      }
+      if(pin) unlockStrava(pin);
       if(res.error){ setStravaError(res.error); return; }
       const updated = manualSessions.map(s=>s.id===session.id?{...s,stravaActivityId:res.activityId}:s);
       setManualSessions(updated);
@@ -1502,7 +1537,18 @@ export default function App(){
       setStrength(strength.map(s=>s.id===session.id?{...s,name:newName}:s));
     }
     const activityId = session.isManual ? session.stravaActivityId : session.id;
-    const res = await fetch("/api/rename",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({activity_id:activityId,name:newName})}).then(r=>r.json()).catch(e=>({error:e.message}));
+    renameOnStrava(activityId, newName);
+  }
+
+  async function renameOnStrava(activityId, name, pinOverride) {
+    const pin = pinOverride ?? getStravaPin() ?? "";
+    const res = await fetch("/api/rename",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({activity_id:activityId,name,pin})}).then(r=>r.json()).catch(e=>({error:e.message}));
+    if(res?.pinRequired){
+      lockStrava();
+      setPinPrompt({error:pin?"Incorrect PIN":null, retry:newPin=>renameOnStrava(activityId,name,newPin)});
+      return;
+    }
+    if(pin) unlockStrava(pin);
     if(res?.error) setStravaError(res.error);
   }
 
@@ -1616,6 +1662,7 @@ export default function App(){
             <button onClick={forceSync} disabled={syncing} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"5px 10px",fontSize:11,color:C.textMuted,cursor:"pointer",fontFamily:"inherit",opacity:syncing?0.6:1}}>
               {syncing?"Syncing…":"⟳ Sync Strava"}
             </button>
+            {pinUnlocked&&<button onClick={lockStrava} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"5px 10px",fontSize:11,color:C.textMuted,cursor:"pointer",fontFamily:"inherit"}}>🔓 Lock Strava</button>}
           </div>
         </div>
         <div style={{display:"flex",marginTop:20}}>
@@ -1827,5 +1874,6 @@ export default function App(){
     {showAddExercise&&<AddExerciseModal allMuscleGroups={allMuscleGroups} onSave={addCustomExercise} onClose={()=>setShowAddExercise(false)}/>}
     {draftEditor&&<DraftEditorModal draft={draftEditor==="new"?null:draftEditor} allExercises={allExercises} onSave={saveDraft} onClose={()=>setDraftEditor(null)}/>}
     {applyingDraft&&<ApplyDraftModal draft={applyingDraft} sessions={sortedStrength.slice(0,10)} notes={notes} onSelect={id=>applyDraftToSession(applyingDraft,id)} onClose={()=>setApplyingDraft(null)}/>}
+    {pinPrompt&&<PinModal error={pinPrompt.error} onSubmit={pin=>{const{retry}=pinPrompt;setPinPrompt(null);retry(pin);}} onClose={()=>setPinPrompt(null)}/>}
   </>);
 }
