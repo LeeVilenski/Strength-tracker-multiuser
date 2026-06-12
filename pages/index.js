@@ -1085,6 +1085,134 @@ function LogManualModal({allExercises, onSave, onClose}){
   );
 }
 
+// ── Draft/template editor — same exercise picker + sets UI as a manual session ──
+function DraftEditorModal({draft, allExercises, onSave, onClose}){
+  const [title,setTitle]=useState(draft?.title||"");
+  const [exercises,setExercises]=useState(draft?.exercises||{});
+  const [sessionNotes,setSessionNotes]=useState(draft?.sessionNotes||"");
+  const [isTemplate,setIsTemplate]=useState(draft?.isTemplate||false);
+  const [showPicker,setShowPicker]=useState(false);
+
+  function addExercise(ex){ if(exercises[ex.id])return; setExercises(e=>({...e,[ex.id]:{sets:[{reps:"",weight:"",weightUnit:"kg"}]}})); setShowPicker(false); }
+  function removeExercise(id){ const e={...exercises}; delete e[id]; setExercises(e); }
+  function updateExercise(id,val){ setExercises(e=>({...e,[id]:val})); }
+
+  function handleSave(){
+    if(!title.trim())return;
+    onSave({
+      id: draft?.id || "draft_"+Date.now(),
+      title: title.trim(),
+      exercises,
+      sessionNotes,
+      isTemplate,
+    });
+    onClose();
+  }
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:300}} onClick={onClose}>
+      <div style={{background:C.surface,borderRadius:"16px 16px 0 0",width:"100%",maxWidth:520,maxHeight:"88vh",overflowY:"auto",padding:"20px 20px 36px"}} onClick={e=>e.stopPropagation()}>
+        <div style={{width:36,height:4,background:"#e2e8f0",borderRadius:2,margin:"0 auto 16px"}}/>
+        <div style={{fontSize:16,fontWeight:"700",color:C.text,marginBottom:16}}>{draft?"Edit Draft":"New Draft"}</div>
+
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:12,color:C.textMuted,fontWeight:"500",marginBottom:5}}>Title</div>
+          <input style={S.input} placeholder="e.g. Push Day" value={title} onChange={e=>setTitle(e.target.value)} autoFocus/>
+        </div>
+
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:12,color:C.textMuted,fontWeight:"500",marginBottom:8}}>Exercises</div>
+          {Object.keys(exercises).map(exId=>{
+            const ex=allExercises.find(e=>e.id===exId);
+            if(!ex) return null;
+            return(
+              <div key={exId} style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px",marginBottom:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <div style={{fontSize:13,fontWeight:"600",color:C.text}}>{ex.label}</div>
+                  <button onClick={()=>removeExercise(exId)} style={{background:"none",border:"none",color:C.textFaint,fontSize:18,cursor:"pointer",padding:0}}>×</button>
+                </div>
+                <SetsInput exercise={ex} value={exercises[exId]} onChange={v=>updateExercise(exId,v)} notes={{}} activityId="draft"/>
+              </div>
+            );
+          })}
+          <button onClick={()=>setShowPicker(true)} style={{...S.btn("ghost"),width:"100%",fontSize:13}}>+ Add exercise</button>
+        </div>
+
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:12,color:C.textMuted,fontWeight:"500",marginBottom:5}}>Notes</div>
+          <textarea value={sessionNotes} onChange={e=>setSessionNotes(e.target.value)} placeholder="Plan, cues, anything to remember..."
+            style={{...S.input,minHeight:56,resize:"none"}}/>
+        </div>
+
+        <label style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,fontSize:13,color:C.textSecondary,cursor:"pointer"}}>
+          <input type="checkbox" checked={isTemplate} onChange={e=>setIsTemplate(e.target.checked)}/>
+          Save as reusable template (keeps it after applying)
+        </label>
+
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={handleSave} disabled={!title.trim()} style={{...S.btn("primary"),flex:1,opacity:!title.trim()?0.5:1}}>Save</button>
+          <button onClick={onClose} style={S.btn("ghost")}>Cancel</button>
+        </div>
+
+        {showPicker&&<ExercisePicker allExercises={allExercises} onSelect={addExercise} onClose={()=>setShowPicker(false)}/>}
+      </div>
+    </div>
+  );
+}
+
+// ── Draft/template card — shown in the Drafts & Templates section ──
+function DraftCard({draft, allExercises, onApply, onEdit, onDelete}){
+  const entries=Object.entries(draft.exercises||{}).filter(([,v])=>v&&(typeof v==="object"?v.sets?.some(s=>s.reps):true));
+  return(
+    <div style={S.card}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <div style={{fontSize:14,fontWeight:"600",color:C.text}}>{draft.title}</div>
+          {draft.isTemplate&&<span style={{fontSize:10,background:C.greenLight,color:C.green,border:`1px solid ${C.greenBorder}`,borderRadius:20,padding:"1px 7px",fontWeight:"600",flexShrink:0}}>Template</span>}
+        </div>
+      </div>
+      {entries.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
+        {entries.map(([k,v])=>{const ex=allExercises.find(e=>e.id===k);return ex?<div key={k} style={{background:C.blueLight,border:`1px solid ${C.blueBorder}`,borderRadius:20,padding:"3px 10px",fontSize:12,color:C.blue,fontWeight:"500",display:"inline-flex",gap:4}}><span style={{color:"#1d4ed8"}}>{ex.label}</span><span style={{fontWeight:"700"}}>{summariseSets(v)}</span></div>:null;})}
+      </div>}
+      {draft.sessionNotes&&<div style={{fontSize:13,color:C.textMuted,fontStyle:"italic",marginBottom:8}}>{draft.sessionNotes}</div>}
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={onApply} style={{...S.btn("primary"),flex:1,fontSize:12,padding:"6px 12px"}}>Apply to session →</button>
+        <button onClick={onEdit} style={{...S.btn("ghost"),fontSize:12,padding:"6px 12px"}}>Edit</button>
+        <button onClick={onDelete} style={{...S.btn("danger"),fontSize:12,padding:"6px 12px"}}>Delete</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Pick which Strava session to merge a draft into ──
+function ApplyDraftModal({draft, sessions, notes, onSelect, onClose}){
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:300}} onClick={onClose}>
+      <div style={{background:C.surface,borderRadius:"16px 16px 0 0",width:"100%",maxWidth:520,maxHeight:"80vh",display:"flex",flexDirection:"column",padding:"16px 16px 24px"}} onClick={e=>e.stopPropagation()}>
+        <div style={{width:36,height:4,background:"#e2e8f0",borderRadius:2,margin:"0 auto 16px"}}/>
+        <div style={{fontSize:14,fontWeight:"700",color:C.text,marginBottom:4}}>Apply "{draft.title}" to...</div>
+        <div style={{fontSize:12,color:C.textMuted,marginBottom:14}}>Pick the session this draft belongs to — usually your most recent one. You'll get a chance to review before it's saved.</div>
+        <div style={{overflowY:"auto"}}>
+          {sessions.length===0&&<div style={{textAlign:"center",padding:"24px 0",color:C.textFaint,fontSize:13}}>No strength sessions yet. Sync Strava after your workout, then come back.</div>}
+          {sessions.map(s=>{
+            const hasNotes=!!notes[s.id]?.exercises&&Object.keys(notes[s.id].exercises).length>0;
+            return(
+              <button key={s.id} onClick={()=>onSelect(s.id)} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,marginBottom:6,cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:"600",color:C.text}}>{s.name}</div>
+                  <div style={{fontSize:11,color:C.textMuted,marginTop:2}}>{dayLabel(s.date)}{hasNotes?" · has notes already":""}</div>
+                </div>
+                <span style={{color:C.textFaint,fontSize:14}}>→</span>
+              </button>
+            );
+          })}
+        </div>
+        <button onClick={onClose} style={{...S.btn("ghost"),marginTop:8}}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ──
 export default function App(){
   const [view,setView]=useState("dashboard");
@@ -1110,6 +1238,9 @@ export default function App(){
   const [expandedMuscle,setExpandedMuscle]=useState(null);
   const [showAddMuscle,setShowAddMuscle]=useState(false);
   const [showAddExercise,setShowAddExercise]=useState(false);
+  const [drafts,setDrafts]=useState([]);
+  const [draftEditor,setDraftEditor]=useState(null);
+  const [applyingDraft,setApplyingDraft]=useState(null);
   const insightDone=useRef(false);
 
   const allMuscleGroups={...BUILTIN_MUSCLE_GROUPS,...Object.fromEntries(customMuscleGroups.map(mg=>[mg.id,mg]))};
@@ -1125,9 +1256,10 @@ export default function App(){
         const status=await fetch("/api/auth/status").then(r=>r.json());
         setConnected(status.connected);
         if(status.connected){
-          const [actData,notesData,customData]=await Promise.all([fetch("/api/activities").then(r=>r.json()),fetch("/api/notes").then(r=>r.json()),fetch("/api/custom").then(r=>r.json())]);
+          const [actData,notesData,customData,draftsData]=await Promise.all([fetch("/api/activities").then(r=>r.json()),fetch("/api/notes").then(r=>r.json()),fetch("/api/custom").then(r=>r.json()),fetch("/api/drafts").then(r=>r.json())]);
           setRuns(actData.runs||[]);setStrength(actData.strength||[]);setNotes(notesData.notes||{});
           setCustomExercises(customData.exercises||[]);setCustomMuscleGroups(customData.muscles||[]);
+          setDrafts(draftsData.drafts||[]);
         }
       }catch(e){console.error(e);}
       setLoading(false);
@@ -1203,6 +1335,37 @@ export default function App(){
   async function addCustomExercise(ex){await fetch("/api/custom",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"exercise",data:ex})});setCustomExercises(prev=>[...prev,ex]);}
   async function deleteExercise(id){await fetch("/api/custom",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"exercise",id})});setCustomExercises(prev=>prev.filter(e=>e.id!==id));}
   async function deleteMuscle(id){await fetch("/api/custom",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"muscle",id})});setCustomMuscleGroups(prev=>prev.filter(m=>m.id!==id));}
+
+  async function saveDraft(draft){
+    await fetch("/api/drafts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({draft})});
+    setDrafts(prev=>{
+      const idx=prev.findIndex(d=>d.id===draft.id);
+      if(idx>=0){const copy=[...prev];copy[idx]=draft;return copy;}
+      return [draft,...prev];
+    });
+  }
+
+  async function deleteDraft(id){
+    await fetch("/api/drafts",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
+    setDrafts(prev=>prev.filter(d=>d.id!==id));
+  }
+
+  function applyDraftToSession(draft,activityId){
+    const existing=notes[activityId]||{exercises:{},sessionNotes:""};
+    const mergedExercises={...existing.exercises};
+    for(const [exId,val] of Object.entries(draft.exercises||{})){
+      if(mergedExercises[exId]){
+        mergedExercises[exId]={...mergedExercises[exId],sets:[...(mergedExercises[exId].sets||[]),...(val.sets||[])]};
+      }else{
+        mergedExercises[exId]=val;
+      }
+    }
+    const mergedNotes=[existing.sessionNotes,draft.sessionNotes].filter(Boolean).join("\n\n");
+    setEnrichForm({exercises:mergedExercises,sessionNotes:mergedNotes});
+    setEnriching(activityId);
+    setApplyingDraft(null);
+    if(!draft.isTemplate)deleteDraft(draft.id);
+  }
 
   const allStrength=[...strength,...manualSessions].sort((a,b)=>b.date.localeCompare(a.date));
   const sortedStrength=allStrength;
@@ -1412,6 +1575,18 @@ export default function App(){
           </>)}
 
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={S.sectionLabel}>Drafts & Templates</div>
+            <button onClick={()=>setDraftEditor("new")} style={{...S.btn("sm"),fontSize:11,padding:"6px 12px"}}>+ New Draft</button>
+          </div>
+          {drafts.length===0&&<div style={{...S.card,color:C.textMuted,fontSize:13,textAlign:"center",padding:"20px 16px",lineHeight:1.7}}>No drafts yet. Jot down a plan before or during your workout, then apply it to the Strava session once it syncs.</div>}
+          {drafts.map(d=>(
+            <DraftCard key={d.id} draft={d} allExercises={allExercises}
+              onApply={()=>setApplyingDraft(d)}
+              onEdit={()=>setDraftEditor(d)}
+              onDelete={()=>deleteDraft(d.id)}/>
+          ))}
+
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,marginTop:4}}>
             <div style={S.sectionLabel}>Sessions ({allStrength.length})</div>
             <div style={{display:"flex",gap:6}}>
               <button onClick={()=>setShowLogManual(true)} style={{...S.btn("primary"),fontSize:11,padding:"6px 12px"}}>+ Log Session</button>
@@ -1451,5 +1626,7 @@ export default function App(){
     {showLogManual&&<LogManualModal allExercises={allExercises} onSave={saveManualSession} onClose={()=>setShowLogManual(false)}/>}
     {showAddMuscle&&<AddMuscleModal onSave={addCustomMuscle} onClose={()=>setShowAddMuscle(false)}/>}
     {showAddExercise&&<AddExerciseModal allMuscleGroups={allMuscleGroups} onSave={addCustomExercise} onClose={()=>setShowAddExercise(false)}/>}
+    {draftEditor&&<DraftEditorModal draft={draftEditor==="new"?null:draftEditor} allExercises={allExercises} onSave={saveDraft} onClose={()=>setDraftEditor(null)}/>}
+    {applyingDraft&&<ApplyDraftModal draft={applyingDraft} sessions={sortedStrength.slice(0,10)} notes={notes} onSelect={id=>applyDraftToSession(applyingDraft,id)} onClose={()=>setApplyingDraft(null)}/>}
   </>);
 }
