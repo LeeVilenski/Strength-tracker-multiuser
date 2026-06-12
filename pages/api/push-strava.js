@@ -34,6 +34,7 @@ export default async function handler(req, res) {
     }
 
     if (status.error) {
+      console.error("Strava upload failed:", JSON.stringify(status), "payload:", JSON.stringify(payload));
       const dup = status.error.match(/duplicate of activity '?(\d+)/);
       if (dup) activityId = dup[1];
       else return res.status(502).json({ error: status.error });

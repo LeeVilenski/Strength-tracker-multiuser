@@ -878,7 +878,7 @@ function StravaSyncToast({error,onDismiss}){
         <div style={{fontSize:12,color:"#d1d5db",marginTop:2}}>
           {error.includes("authenticated")||error.includes("403")
             ? <>Reconnect Strava to allow description updates — <a href="/api/auth/login" style={{color:"#fb923c"}}>reconnect</a></>
-            : "Saved locally, but the Strava activity description wasn't updated."}
+            : <>Saved locally, but Strava update failed: {error}</>}
         </div>
       </div>
     </div>
