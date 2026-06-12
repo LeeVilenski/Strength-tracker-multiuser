@@ -1089,6 +1089,8 @@ function LogManualModal({allExercises, onSave, onClose}){
   const [name, setName] = useState("");
   const [durationMin, setDurationMin] = useState("");
   const [durationSec, setDurationSec] = useState("");
+  const [avgHr, setAvgHr] = useState("");
+  const [maxHr, setMaxHr] = useState("");
   const [exercises, setExercises] = useState({});
   const [sessionNotes, setSessionNotes] = useState("");
   const [showPicker, setShowPicker] = useState(false);
@@ -1105,7 +1107,7 @@ function LogManualModal({allExercises, onSave, onClose}){
       sport_type: "Workout",
       date,
       distance:0, duration:(parseInt(durationMin)||0)*60+(parseInt(durationSec)||0),
-      calories:0, effort:0, avg_hr:null, max_hr:null, elevation:0,
+      calories:0, effort:0, avg_hr:parseInt(avgHr)||null, max_hr:parseInt(maxHr)||null, elevation:0,
       isManual: true,
     };
     onSave(session, {exercises, sessionNotes});
@@ -1135,6 +1137,17 @@ function LogManualModal({allExercises, onSave, onClose}){
               <span style={{color:C.textMuted}}>:</span>
               <input type="number" style={{...S.input,width:0,flex:1}} placeholder="sec" min="0" max="59" value={durationSec} onChange={e=>setDurationSec(e.target.value)}/>
             </div>
+          </div>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+          <div>
+            <div style={{fontSize:12,color:C.textMuted,fontWeight:"500",marginBottom:5}}>Avg HR (optional)</div>
+            <input type="number" style={S.input} placeholder="e.g. 130" min="0" value={avgHr} onChange={e=>setAvgHr(e.target.value)}/>
+          </div>
+          <div>
+            <div style={{fontSize:12,color:C.textMuted,fontWeight:"500",marginBottom:5}}>Max HR (optional)</div>
+            <input type="number" style={S.input} placeholder="e.g. 165" min="0" value={maxHr} onChange={e=>setMaxHr(e.target.value)}/>
           </div>
         </div>
 
