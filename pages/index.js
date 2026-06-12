@@ -1234,6 +1234,7 @@ export default function App(){
   const [challengeDone,setChallengeDone]=useState(null);
   const [stravaError,setStravaError]=useState(null);
   const [manualSessions,setManualSessions]=useState(()=>{try{return JSON.parse(localStorage.getItem("manual_sessions_v1")||"[]");}catch{return [];}});
+  const [pushingToStrava,setPushingToStrava]=useState(null);
   const [showLogManual,setShowLogManual]=useState(false);
   const [expandedMuscle,setExpandedMuscle]=useState(null);
   const [showAddMuscle,setShowAddMuscle]=useState(false);
@@ -1308,6 +1309,26 @@ export default function App(){
     const updated = manualSessions.filter(s=>s.id!==id);
     setManualSessions(updated);
     try { localStorage.setItem("manual_sessions_v1", JSON.stringify(updated)); } catch {}
+  }
+
+  async function pushManualSessionToStrava(session) {
+    setPushingToStrava(session.id);
+    try {
+      const utcOffset = -new Date().getTimezoneOffset()*60;
+      const res = await fetch("/api/push-strava",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session,notes:notes[session.id],utcOffset})}).then(r=>r.json());
+      if(res.error){ setStravaError(res.error); return; }
+      if(res.activityId){
+        const updated = manualSessions.map(s=>s.id===session.id?{...s,stravaActivityId:res.activityId}:s);
+        setManualSessions(updated);
+        try { localStorage.setItem("manual_sessions_v1", JSON.stringify(updated)); } catch {}
+      } else {
+        setStravaError("Upload is still processing on Strava - check back shortly.");
+      }
+    } catch(e) {
+      setStravaError(e.message);
+    } finally {
+      setPushingToStrava(null);
+    }
   }
 
   async function saveNotesFixed(activityId){
@@ -1604,11 +1625,12 @@ export default function App(){
                     <div style={{fontSize:15,fontWeight:"600",color:C.text}}>{s.name}</div>
                     {s.isManual&&<span style={{fontSize:10,background:C.blueLight,color:C.blue,border:`1px solid ${C.blueBorder}`,borderRadius:20,padding:"1px 7px",fontWeight:"600",flexShrink:0}}>Manual</span>}
                   </div>
-                  <div style={{fontSize:12,color:C.textMuted,marginTop:3}}>{dayLabel(s.date)}{!s.isManual&&<a href={`https://www.strava.com/activities/${s.id}`} target="_blank" rel="noopener noreferrer" style={{marginLeft:8,color:C.textFaint,textDecoration:"none"}}>↗ Strava</a>}</div>
+                  <div style={{fontSize:12,color:C.textMuted,marginTop:3}}>{dayLabel(s.date)}{(!s.isManual||s.stravaActivityId)&&<a href={`https://www.strava.com/activities/${s.isManual?s.stravaActivityId:s.id}`} target="_blank" rel="noopener noreferrer" style={{marginLeft:8,color:C.textFaint,textDecoration:"none"}}>↗ Strava</a>}</div>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
                   <div style={{fontSize:16,color:C.blue,fontWeight:"600"}}>{fmtDuration(s.duration)}</div>
                   {s.calories>0&&<div style={{fontSize:12,color:C.textFaint}}>{s.calories}kcal</div>}
+                  {s.isManual&&!s.stravaActivityId&&<button onClick={()=>pushManualSessionToStrava(s)} disabled={pushingToStrava===s.id} style={{background:"none",border:`1px solid ${C.blueBorder}`,borderRadius:6,padding:"2px 8px",color:C.blue,fontSize:11,cursor:pushingToStrava===s.id?"default":"pointer",fontFamily:"inherit",marginTop:4,display:"block",marginLeft:"auto"}}>{pushingToStrava===s.id?"Pushing…":"Push to Strava"}</button>}
                   {s.isManual&&<button onClick={()=>deleteManualSession(s.id)} style={{background:"none",border:"none",color:C.textFaint,fontSize:11,cursor:"pointer",padding:0,fontFamily:"inherit",marginTop:4}}>delete</button>}
                 </div>
               </div>
