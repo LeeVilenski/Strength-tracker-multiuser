@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const { session, notes, pin } = req.body;
+    const { session, notes, pin, xpGain } = req.body;
     if (!pinOk(pin)) {
       return res.status(401).json({ error: "Incorrect PIN", pinRequired: true });
     }
@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     const customExercises = await getCustomExercises();
     const allExercises = [...EXERCISE_LIBRARY, ...customExercises];
 
-    const block = buildExerciseBlock(notes, allExercises);
+    const block = buildExerciseBlock(notes, allExercises, { xpGain, appUrl: process.env.NEXT_PUBLIC_APP_URL });
     if (!block) {
       return res.status(400).json({ error: "No logged sets to push - add exercises first" });
     }

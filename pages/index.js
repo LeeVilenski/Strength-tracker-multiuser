@@ -89,6 +89,16 @@ function hrColor(hr){if(!hr)return "#9ca3af";if(hr<120)return "#16a34a";if(hr<14
 function isStrengthType(t){return["WeightTraining","Workout","Crossfit","HighIntensityIntervalTraining","Yoga","Pilates","RockClimbing"].includes(t);}
 function daysAgo(d){if(!d)return null;return Math.floor((new Date()-new Date(d+"T12:00:00"))/86400000);}
 
+// Attach display label/emoji to a diffMuscleStats() result so the API can
+// drop it straight into the Strava description.
+function enrichXpGain(xpGain,muscleGroups){
+  return{
+    totalXp:xpGain.totalXp,
+    levelUps:xpGain.levelUps.map(lu=>({...lu,label:muscleGroups[lu.muscle]?.label||lu.muscle,emoji:muscleGroups[lu.muscle]?.emoji||"💪"})),
+    bodyLevelUp:xpGain.bodyLevelUp?{...xpGain.bodyLevelUp,label:BODY_GROUP.label,emoji:BODY_GROUP.emoji}:null,
+  };
+}
+
 const C={bg:"#f4f5f7",surface:"#ffffff",border:"#e5e7eb",text:"#111827",textSecondary:"#374151",textMuted:"#6b7280",textFaint:"#9ca3af",orange:"#ea580c",orangeLight:"#fff7ed",orangeBorder:"#fed7aa",blue:"#2563eb",blueLight:"#eff6ff",blueBorder:"#bfdbfe",green:"#16a34a",greenLight:"#f0fdf4",greenBorder:"#bbf7d0",red:"#dc2626",redLight:"#fef2f2",redBorder:"#fecaca"};
 const S={
   page:{fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",background:C.bg,minHeight:"100vh",color:C.text,maxWidth:520,margin:"0 auto"},
@@ -1555,7 +1565,14 @@ export default function App(){
     setPushingToStrava(session.id);
     try {
       const pin = pinOverride ?? getStravaPin() ?? "";
-      const res = await fetch("/api/push-strava",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session,notes:notes[session.id],pin})}).then(r=>r.json());
+      // XP this session is worth, computed by diffing stats with/without it —
+      // shown in the Strava description alongside any level-ups it caused.
+      const beforeNotes={...notes};delete beforeNotes[session.id];
+      const beforeStrength=allStrength.filter(s=>s.id!==session.id);
+      const before=computeMuscleStats(beforeNotes,beforeStrength,allExercises,bodyBonusXp);
+      const after=computeMuscleStats(notes,allStrength,allExercises,bodyBonusXp);
+      const xpGain=diffMuscleStats(before,after);
+      const res = await fetch("/api/push-strava",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session,notes:notes[session.id],pin,xpGain:enrichXpGain(xpGain,allMuscleGroups)})}).then(r=>r.json());
       if(res.pinRequired){
         lockStrava();
         setPinPrompt({error:pin?"Incorrect PIN":null, retry:newPin=>pushManualSessionToStrava(session,newPin)});
@@ -1603,7 +1620,11 @@ export default function App(){
     const needsPin=/^\d+$/.test(String(activityId));
     const pin=needsPin?(pinOverride??getStravaPin()??""):"";
     setSaving(true);
-    const syncRes=await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({activity_id:activityId,notes:enrichForm,pin})}).then(r=>r.json()).catch(()=>null);
+    const updatedNotes={...notes,[activityId]:enrichForm};
+    const before=computeMuscleStats(notes,allStrength,allExercises,bodyBonusXp);
+    const after=computeMuscleStats(updatedNotes,allStrength,allExercises,bodyBonusXp);
+    const xpGain=diffMuscleStats(before,after);
+    const syncRes=await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({activity_id:activityId,notes:enrichForm,pin,xpGain:enrichXpGain(xpGain,allMuscleGroups)})}).then(r=>r.json()).catch(()=>null);
     if(syncRes?.pinRequired){
       setSaving(false);
       lockStrava();
@@ -1612,13 +1633,10 @@ export default function App(){
     }
     if(pin)unlockStrava(pin);
     if(syncRes?.stravaError)setStravaError(syncRes.stravaError);
-    const updatedNotes={...notes,[activityId]:enrichForm};
-    const before=computeMuscleStats(notes,allStrength,allExercises,bodyBonusXp);
-    const after=computeMuscleStats(updatedNotes,allStrength,allExercises,bodyBonusXp);
     setNotes(updatedNotes);
     setSaving(false);setEnriching(null);
     if(newPBs.length>0)setPbs(newPBs);
-    setXpGain(diffMuscleStats(before,after));
+    setXpGain(xpGain);
     checkChallengeCompletion(notes,allStrength,updatedNotes,allStrength);
   }
 
