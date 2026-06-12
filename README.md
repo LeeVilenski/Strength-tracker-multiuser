@@ -147,7 +147,9 @@ Vercel will automatically redeploy when you save changes on GitHub.
 
 ## How to record strength sessions
 
-For your sessions to appear in the tracker, record them on your Garmin/Forerunner as one of these activity types:
+### Recording on your watch
+
+For your sessions to appear in the tracker automatically, record them on your Garmin/Forerunner as one of these activity types:
 
 - **Workout**
 - **Strength Training**
@@ -157,7 +159,25 @@ For your sessions to appear in the tracker, record them on your Garmin/Forerunne
 
 Once the activity syncs to Strava, it will appear automatically in the app. Tap **+ add exercise breakdown** on the session to log your sets, reps and weight.
 
-For quick sessions you don't want on your Strava feed, use the **+ Log Session** button in the Strength tab.
+### Logging a session manually
+
+For sessions you didn't record on your watch (or don't want on your Strava feed), use the **+ Log Session** button in the Strength tab. You can give it a name, date, duration (minutes:seconds), and add an exercise breakdown the same way as a synced session.
+
+### Adding heart rate data
+
+Manually logged sessions can include heart rate data in two ways:
+
+- **Type it in** — fill in the optional **Avg HR** / **Max HR** fields yourself.
+- **Import from your watch** — if you recorded the session on your Garmin (even as a plain "Workout" you don't want on Strava), export the `.fit` file from [Garmin Connect](https://connect.garmin.com) (Activity → ⚙️ → Export Original) and upload it with **Import from watch (.fit)**. This automatically fills in average/max HR, duration, and calories, and stores the full HR stream so it can be shown on Strava as a heart rate graph.
+
+### Pushing a manual session to Strava
+
+If a manually logged session has an exercise breakdown and/or imported HR data, you can tap **Push to Strava** on it to create a real Strava activity for it. This builds a `.fit` file containing your sets (reps/weight per exercise) and, if you imported one, the full heart rate stream — so the Strava activity shows both the Strength Training set breakdown and an HR graph. Once pushed, the session is linked to its new Strava activity and won't be duplicated.
+
+### Removing old sessions
+
+- **Manual sessions** that haven't been pushed to Strava can be deleted with the **delete** link.
+- **Synced sessions** that you've since deleted on Strava directly can be cleaned out of the app's cache with the **remove** link, so they stop cluttering your stats.
 
 ---
 
