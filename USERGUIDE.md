@@ -41,7 +41,11 @@ If `APP_PIN` is set (in Vercel env vars), every action that actually changes som
   - *Streak* — train that muscle every week for 4 weeks
   - *Volume* — log 100+ total reps of an exercise this month
 
-  Progress bars fill as you log sessions; hitting 100% pops a "challenge complete" toast.
+  Progress bars fill as you log sessions; hitting 100% pops a "challenge complete" toast and awards a one-off **+200 XP** bonus to your Overall level. Each month's challenge is locked in the first time it's generated, so it won't shift around as your stats change later in the month.
+
+- **Overall level** — a single ⭐ level fed by *all* training (not just one muscle), shown right below the challenge card. It uses the same XP curve as muscle levels, but decays much faster — just **3 days** of grace before losing **30 XP/day** — so it reflects how recently you've trained overall. Completed monthly challenges add their bonus XP straight to this level.
+
+- **Past Challenges** — a collapsible history below the Overall level card showing every previous month's challenge, whether it was completed, and the bonus XP earned.
 
 - **Top stat row** — total strength sessions, days since your last session (red if >14 days, amber if >7), and your run:strength session ratio (lower is more balanced).
 

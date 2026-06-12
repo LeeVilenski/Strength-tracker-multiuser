@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
-import { MUSCLE_GROUPS as BUILTIN_MUSCLE_GROUPS, computeMuscleStats, diffMuscleStats, detectPBs, generateMonthlyChallenge, computeChallengeProgress, xpForExercise, totalRepsFromValue, bestWeightFromValue, summariseSets } from "../lib/game";
+import { MUSCLE_GROUPS as BUILTIN_MUSCLE_GROUPS, computeMuscleStats, diffMuscleStats, detectPBs, generateMonthlyChallenge, computeChallengeProgress, xpForExercise, totalRepsFromValue, bestWeightFromValue, summariseSets, BODY_GROUP, BODY_DECAY_GRACE_DAYS, CHALLENGE_BONUS_XP } from "../lib/game";
 import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES, getExercisesByCategory } from "../lib/exercises";
 import BodyMap from "../components/BodyMap";
 
@@ -820,6 +820,68 @@ function ChallengeCard({challenge,notes,strength}){
   );
 }
 
+// ── Overall ("body") level card — fed by all training, decays fast ──
+function OverallLevelCard({stats}){
+  const s=stats.body||{level:0,currentXp:0,xpNeeded:160,effectiveXp:0,lastTrained:null};
+  const pct=Math.min(100,Math.round((s.currentXp/s.xpNeeded)*100));
+  const da=daysAgo(s.lastTrained);
+  return(
+    <div style={{background:BODY_GROUP.lightBg,border:`1px solid ${BODY_GROUP.border}`,borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:38,height:38,borderRadius:10,background:"#fff",border:`1px solid ${BODY_GROUP.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{BODY_GROUP.emoji}</div>
+          <div>
+            <div style={{fontSize:14,fontWeight:"600",color:C.text}}>{BODY_GROUP.label} Level</div>
+            <div style={{fontSize:11,color:C.textMuted,marginTop:1}}>
+              {s.lastTrained?(da===0?"Trained today":`${da}d ago`):"Never trained"}
+              {da!==null&&da>BODY_DECAY_GRACE_DAYS&&<span style={{color:C.red,marginLeft:6,fontWeight:"500"}}>⚠ Decaying fast</span>}
+            </div>
+          </div>
+        </div>
+        <div style={{fontSize:22,fontWeight:"700",color:BODY_GROUP.color}}>Lv {s.level}</div>
+      </div>
+      <div style={{background:"#fff",borderRadius:99,height:8,overflow:"hidden"}}>
+        <div style={{height:"100%",background:BODY_GROUP.color,borderRadius:99,width:`${pct}%`,transition:"width 0.5s"}}/>
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",marginTop:5}}>
+        <span style={{fontSize:11,color:C.textFaint}}>{s.currentXp} / {s.xpNeeded} XP to next level</span>
+        <span style={{fontSize:11,color:C.textFaint}}>{s.effectiveXp} total XP</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Past monthly challenges — collapsible history ──
+function PastChallengesSection({monthlyChallenges,currentMonthKey,notes,strength,expanded,onToggle}){
+  const past=monthlyChallenges.filter(c=>c.monthKey!==currentMonthKey).sort((a,b)=>b.monthKey.localeCompare(a.monthKey));
+  if(past.length===0)return null;
+  return(
+    <div style={S.card}>
+      <div onClick={onToggle} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
+        <div style={{fontSize:14,fontWeight:"600",color:C.text}}>📜 Past Challenges</div>
+        <div style={{fontSize:11,color:C.textFaint}}>{expanded?"▲":"▼"}</div>
+      </div>
+      {expanded&&past.map(c=>{
+        const {mg,title}=c.challenge;
+        const {pct}=computeChallengeProgress(c.challenge,notes,strength,c.monthKey);
+        return(
+          <div key={c.monthKey} style={{marginTop:10,padding:"10px 12px",background:c.completed?"#f0fdf4":C.bg,border:`1px solid ${c.completed?C.greenBorder:C.border}`,borderRadius:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+              <div style={{minWidth:0}}>
+                <div style={{fontSize:11,color:C.textMuted,fontWeight:"600",textTransform:"uppercase"}}>{monthLabel(c.monthKey)}</div>
+                <div style={{fontSize:13,color:C.text,fontWeight:"500",marginTop:2}}>{mg.emoji} {title}</div>
+              </div>
+              <div style={{textAlign:"right",flexShrink:0}}>
+                {c.completed?<div style={{fontSize:12,color:C.green,fontWeight:"700"}}>✓ +{c.bonusXp} XP</div>:<div style={{fontSize:12,color:C.textFaint,fontWeight:"600"}}>{pct}%</div>}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function PBToast({pbs,allExercises,onDismiss}){
   useEffect(()=>{if(pbs.length>0){const t=setTimeout(onDismiss,4500);return()=>clearTimeout(t);}},[pbs]);
   if(!pbs.length)return null;
@@ -860,7 +922,7 @@ function ChallengeToast({challenge,onDismiss}){
     <div style={{background:challenge.mg.color,color:"#fff",borderRadius:12,padding:"12px 20px",boxShadow:"0 8px 24px rgba(0,0,0,0.2)",display:"flex",gap:10,alignItems:"center",width:"100%"}}>
       <span style={{fontSize:20}}>🏆</span>
       <div>
-        <div style={{fontSize:13,fontWeight:"700"}}>Challenge complete!</div>
+        <div style={{fontSize:13,fontWeight:"700"}}>Challenge complete! +{CHALLENGE_BONUS_XP} {BODY_GROUP.label} XP {BODY_GROUP.emoji}</div>
         <div style={{fontSize:12,color:"rgba(255,255,255,0.85)",marginTop:2}}>{challenge.title}</div>
       </div>
     </div>
@@ -1401,7 +1463,10 @@ export default function App(){
   const [drafts,setDrafts]=useState([]);
   const [draftEditor,setDraftEditor]=useState(null);
   const [applyingDraft,setApplyingDraft]=useState(null);
+  const [monthlyChallenges,setMonthlyChallenges]=useState([]);
+  const [showPastChallenges,setShowPastChallenges]=useState(false);
   const insightDone=useRef(false);
+  const challengeSaveRef=useRef(new Set());
 
   const allMuscleGroups={...BUILTIN_MUSCLE_GROUPS,...Object.fromEntries(customMuscleGroups.map(mg=>[mg.id,mg]))};
   const allExercises=[
@@ -1416,10 +1481,11 @@ export default function App(){
         const status=await fetch("/api/auth/status").then(r=>r.json());
         setConnected(status.connected);
         if(status.connected){
-          const [actData,notesData,customData,draftsData]=await Promise.all([fetch("/api/activities").then(r=>r.json()),fetch("/api/notes").then(r=>r.json()),fetch("/api/custom").then(r=>r.json()),fetch("/api/drafts").then(r=>r.json())]);
+          const [actData,notesData,customData,draftsData,challengesData]=await Promise.all([fetch("/api/activities").then(r=>r.json()),fetch("/api/notes").then(r=>r.json()),fetch("/api/custom").then(r=>r.json()),fetch("/api/drafts").then(r=>r.json()),fetch("/api/challenges").then(r=>r.json())]);
           setRuns(actData.runs||[]);setStrength(actData.strength||[]);setNotes(notesData.notes||{});
           setCustomExercises(customData.exercises||[]);setCustomMuscleGroups(customData.muscles||[]);
           setDrafts(draftsData.drafts||[]);
+          setMonthlyChallenges(challengesData.challenges||[]);
         }
       }catch(e){console.error(e);}
       setLoading(false);
@@ -1469,6 +1535,19 @@ export default function App(){
       .then(r=>r.json()).then(d=>setInsight(d.insight||"")).catch(()=>{}).finally(()=>setInsightLoading(false));
   },[runs,strength]);
 
+  // Detect a freshly-completed monthly challenge, persist the completion +
+  // body-XP bonus, and surface the toast.
+  async function checkChallengeCompletion(beforeNotes, beforeStrength, afterNotes, afterStrength) {
+    if(!challenge||!currentChallengeRow||currentChallengeRow.completed)return;
+    const beforeProgress=computeChallengeProgress(challenge,beforeNotes,beforeStrength,monthKey);
+    const afterProgress=computeChallengeProgress(challenge,afterNotes,afterStrength,monthKey);
+    if(!beforeProgress.done&&afterProgress.done){
+      setChallengeDone(challenge);
+      await fetch("/api/challenges",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"complete",monthKey,bonusXp:CHALLENGE_BONUS_XP})}).catch(()=>{});
+      setMonthlyChallenges(prev=>prev.map(c=>c.monthKey===monthKey?{...c,completed:true,bonusXp:CHALLENGE_BONUS_XP}:c));
+    }
+  }
+
   async function saveManualSession(session, noteData) {
     const updated = [...manualSessions, session];
     setManualSessions(updated);
@@ -1477,15 +1556,11 @@ export default function App(){
     await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({activity_id:session.id,notes:noteData})});
     const updatedNotes={...notes,[session.id]:noteData};
     const updatedStrength=[...allStrength,session];
-    const before=computeMuscleStats(notes,allStrength,allExercises);
-    const after=computeMuscleStats(updatedNotes,updatedStrength,allExercises);
+    const before=computeMuscleStats(notes,allStrength,allExercises,bodyBonusXp);
+    const after=computeMuscleStats(updatedNotes,updatedStrength,allExercises,bodyBonusXp);
     setNotes(updatedNotes);
     setXpGain(diffMuscleStats(before,after));
-    if(challenge){
-      const beforeProgress=computeChallengeProgress(challenge,notes,allStrength);
-      const afterProgress=computeChallengeProgress(challenge,updatedNotes,updatedStrength);
-      if(!beforeProgress.done&&afterProgress.done)setChallengeDone(challenge);
-    }
+    checkChallengeCompletion(notes,allStrength,updatedNotes,updatedStrength);
   }
 
   async function removeCachedActivity(id) {
@@ -1567,17 +1642,13 @@ export default function App(){
     if(pin)unlockStrava(pin);
     if(syncRes?.stravaError)setStravaError(syncRes.stravaError);
     const updatedNotes={...notes,[activityId]:enrichForm};
-    const before=computeMuscleStats(notes,allStrength,allExercises);
-    const after=computeMuscleStats(updatedNotes,allStrength,allExercises);
+    const before=computeMuscleStats(notes,allStrength,allExercises,bodyBonusXp);
+    const after=computeMuscleStats(updatedNotes,allStrength,allExercises,bodyBonusXp);
     setNotes(updatedNotes);
     setSaving(false);setEnriching(null);
     if(newPBs.length>0)setPbs(newPBs);
     setXpGain(diffMuscleStats(before,after));
-    if(challenge){
-      const beforeProgress=computeChallengeProgress(challenge,notes,allStrength);
-      const afterProgress=computeChallengeProgress(challenge,updatedNotes,allStrength);
-      if(!beforeProgress.done&&afterProgress.done)setChallengeDone(challenge);
-    }
+    checkChallengeCompletion(notes,allStrength,updatedNotes,allStrength);
   }
 
   function openEnrich(activity){setEnriching(activity.id);setEnrichForm(notes[activity.id]||{exercises:{},sessionNotes:""});}
@@ -1626,9 +1697,24 @@ export default function App(){
   const lastStr=sortedStrength[0];
   const daysSince=lastStr?Math.floor((new Date()-new Date(lastStr.date+"T12:00:00"))/86400000):null;
   const hrTrend=sortedStrength.filter(s=>s.avg_hr).slice(0,8).reverse().map(s=>s.avg_hr);
-  const muscleStats=computeMuscleStats(notes,allStrength,allExercises);
-  const challenge=generateMonthlyChallenge(muscleStats,new Date().getMonth(),allExercises);
+  const now=new Date();
+  const monthKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  const bodyBonusXp=monthlyChallenges.filter(c=>c.completed).reduce((acc,c)=>acc+(c.bonusXp||0),0);
+  const muscleStats=computeMuscleStats(notes,allStrength,allExercises,bodyBonusXp);
+  const currentChallengeRow=monthlyChallenges.find(c=>c.monthKey===monthKey);
+  const challenge=currentChallengeRow?.challenge||generateMonthlyChallenge(muscleStats,now.getMonth(),allExercises);
   const ratio=Math.round(runs.length/Math.max(allStrength.length,1));
+
+  // Persist this month's challenge the first time it's generated, so it
+  // doesn't shift mid-month as live stats change.
+  useEffect(()=>{
+    if(loading||!connected||currentChallengeRow||!challenge)return;
+    if(challengeSaveRef.current.has(monthKey))return;
+    challengeSaveRef.current.add(monthKey);
+    fetch("/api/challenges",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save",monthKey,challenge})})
+      .then(()=>setMonthlyChallenges(prev=>prev.some(c=>c.monthKey===monthKey)?prev:[{monthKey,challenge,completed:false,bonusXp:0},...prev]))
+      .catch(()=>{challengeSaveRef.current.delete(monthKey);});
+  },[loading,connected,monthKey,currentChallengeRow,challenge]);
 
   const currentYear=new Date().getFullYear();
   const ytdStrength=allStrength.filter(s=>s.date?.startsWith(String(currentYear)));
@@ -1686,6 +1772,12 @@ export default function App(){
         {view==="dashboard"&&(<>
           {/* Monthly challenge — top of dashboard */}
           <ChallengeCard challenge={challenge} notes={notes} strength={[...strength,...manualSessions]}/>
+
+          {/* Overall ("body") level — fed by all training, decays fast */}
+          <OverallLevelCard stats={muscleStats}/>
+
+          {/* Past challenges history */}
+          <PastChallengesSection monthlyChallenges={monthlyChallenges} currentMonthKey={monthKey} notes={notes} strength={[...strength,...manualSessions]} expanded={showPastChallenges} onToggle={()=>setShowPastChallenges(!showPastChallenges)}/>
 
           {/* Top stat row */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
