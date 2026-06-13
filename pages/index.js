@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
-import { MUSCLE_GROUPS as BUILTIN_MUSCLE_GROUPS, computeMuscleStats, diffMuscleStats, detectPBs, generateMonthlyChallenge, computeChallengeProgress, xpForExercise, totalRepsFromValue, bestWeightFromValue, summariseSets, BODY_GROUP, BODY_DECAY_GRACE_DAYS, DECAY_GRACE_DAYS, CHALLENGE_BONUS_XP } from "../lib/game";
+import { MUSCLE_GROUPS as BUILTIN_MUSCLE_GROUPS, computeMuscleStats, diffMuscleStats, detectPBs, generateMonthlyChallenge, computeChallengeProgress, xpForExercise, totalRepsFromValue, bestWeightFromValue, summariseSets, BODY_GROUP, BODY_DECAY_GRACE_DAYS, DECAY_GRACE_DAYS, CHALLENGE_BONUS_XP, RUNNING_MUSCLES } from "../lib/game";
 import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES, getExercisesByCategory } from "../lib/exercises";
 import BodyMap from "../components/BodyMap";
 
@@ -72,6 +72,15 @@ function topRunsByPace(runs, bucket, next, limit=15){
     .map(r=>({...r,pace:(r.duration/60)/(r.distance/1000)}))
     .sort((a,b)=>a.pace-b.pace)
     .slice(0,limit);
+}
+// Find the distance bucket a run's distance falls into (with its "next" bucket
+// for the upper bound), or null if it's under the smallest bucket
+function findRunBucket(distance){
+  for(let i=0;i<DISTANCE_BUCKETS.length;i++){
+    const bucket=DISTANCE_BUCKETS[i],next=DISTANCE_BUCKETS[i+1];
+    if(distance>=bucket.meters&&(!next||distance<next.meters))return{bucket,next};
+  }
+  return null;
 }
 // Group strength sessions by calendar month -> [{key:"YYYY-MM", count, durationSec}], most recent first
 function groupStrengthByMonth(sessions){
@@ -877,6 +886,17 @@ function PBToast({pbs,allExercises,onDismiss}){
   );
 }
 
+function RunPbToast({pb,onDismiss}){
+  useEffect(()=>{if(pb){const t=setTimeout(onDismiss,5000);return()=>clearTimeout(t);}},[pb]);
+  if(!pb)return null;
+  return(
+    <div style={{background:"#111827",color:"#fff",borderRadius:12,padding:"12px 20px",boxShadow:"0 8px 24px rgba(0,0,0,0.2)",display:"flex",gap:10,alignItems:"center",width:"100%"}}>
+      <span style={{fontSize:20}}>🏃</span>
+      <div><div style={{fontSize:13,fontWeight:"700",color:"#fbbf24"}}>New {pb.bucket} PB!</div><div style={{fontSize:12,color:"#d1d5db",marginTop:2}}>{fmtPace(pb.pace)} · {pb.name}</div></div>
+    </div>
+  );
+}
+
 function XpToast({gain,muscleGroups,onDismiss}){
   useEffect(()=>{if(gain){const t=setTimeout(onDismiss,4500);return()=>clearTimeout(t);}},[gain]);
   if(!gain||(gain.totalXp<=0&&gain.levelUps.length===0))return null;
@@ -928,12 +948,13 @@ function StravaSyncToast({error,onDismiss}){
   );
 }
 
-function ToastStack({pbs,xpGain,challengeDone,stravaError,allExercises,muscleGroups,onDismissPbs,onDismissXp,onDismissChallenge,onDismissStrava}){
+function ToastStack({pbs,runPb,xpGain,challengeDone,stravaError,allExercises,muscleGroups,onDismissPbs,onDismissRunPb,onDismissXp,onDismissChallenge,onDismissStrava}){
   const showXp=xpGain&&(xpGain.totalXp>0||xpGain.levelUps.length>0);
-  if(!pbs.length&&!showXp&&!challengeDone&&!stravaError)return null;
+  if(!pbs.length&&!runPb&&!showXp&&!challengeDone&&!stravaError)return null;
   return(
     <div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",zIndex:1000,display:"flex",flexDirection:"column",gap:10,width:"90%",maxWidth:340}}>
       <PBToast pbs={pbs} allExercises={allExercises} onDismiss={onDismissPbs}/>
+      <RunPbToast pb={runPb} onDismiss={onDismissRunPb}/>
       <XpToast gain={xpGain} muscleGroups={muscleGroups} onDismiss={onDismissXp}/>
       <ChallengeToast challenge={challengeDone} onDismiss={onDismissChallenge}/>
       <StravaSyncToast error={stravaError} onDismiss={onDismissStrava}/>
@@ -1439,6 +1460,7 @@ export default function App(){
   const [insight,setInsight]=useState("");
   const [insightLoading,setInsightLoading]=useState(false);
   const [pbs,setPbs]=useState([]);
+  const [runPb,setRunPb]=useState(null);
   const [xpGain,setXpGain]=useState(null);
   const [challengeDone,setChallengeDone]=useState(null);
   const [stravaError,setStravaError]=useState(null);
@@ -1537,6 +1559,27 @@ export default function App(){
     fetch("/api/insight",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({recentRuns:runs.slice(0,10).map(r=>`${r.name} ${fmtDist(r.distance)}`).join(", "),strengthSummary:allStrength.length===0?"NONE":allStrength.slice(0,5).map(s=>`${s.name} ${fmtDuration(s.duration)}`).join(", "),strengthCount:allStrength.length,runCount:runs.length})})
       .then(r=>r.json()).then(d=>setInsight(d.insight||"")).catch(()=>{}).finally(()=>setInsightLoading(false));
   },[runs,strength]);
+
+  // Celebrate a new fastest-pace run for its distance bucket — checked once
+  // per "latest run" and remembered in localStorage so it doesn't repeat.
+  useEffect(()=>{
+    if(runs.length===0||!athleteId)return;
+    const latest=[...runs].sort((a,b)=>b.date.localeCompare(a.date))[0];
+    if(!latest||latest.duration<=0)return;
+    let seen=[];
+    try{ seen=JSON.parse(localStorage.getItem(`run_pb_seen_${athleteId}`)||"[]"); }catch{}
+    if(seen.includes(latest.id))return;
+    const found=findRunBucket(latest.distance);
+    if(found){
+      const {bucket,next}=found;
+      const bestOther=topRunsByPace(runs.filter(r=>r.id!==latest.id),bucket,next,1)[0];
+      const latestPace=(latest.duration/60)/(latest.distance/1000);
+      if(!bestOther||latestPace<bestOther.pace){
+        setRunPb({bucket:bucket.label,pace:latestPace,name:latest.name});
+      }
+    }
+    try{ localStorage.setItem(`run_pb_seen_${athleteId}`, JSON.stringify([...seen,latest.id].slice(-200))); }catch{}
+  },[runs,athleteId]);
 
   // Detect a freshly-completed monthly challenge, persist the completion +
   // body-XP bonus, and surface the toast.
@@ -1686,6 +1729,10 @@ export default function App(){
   const monthKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
   const bodyBonusXp=monthlyChallenges.filter(c=>c.completed).reduce((acc,c)=>acc+(c.bonusXp||0),0);
   const muscleStats=computeMuscleStats(notes,allStrength,allExercises,bodyBonusXp);
+  const runningMuscleAlerts=RUNNING_MUSCLES.map(mg=>{
+    const s=muscleStats[mg];
+    return {mg,label:allMuscleGroups[mg]?.label||mg,emoji:allMuscleGroups[mg]?.emoji||"💪",days:s?.lastTrained?daysAgo(s.lastTrained):null,trained:(s?.effectiveXp||0)>0};
+  }).filter(x=>x.trained&&x.days!==null&&x.days>DECAY_GRACE_DAYS).sort((a,b)=>b.days-a.days);
   const currentChallengeRow=monthlyChallenges.find(c=>c.monthKey===monthKey);
   const challenge=currentChallengeRow?.challenge||generateMonthlyChallenge(muscleStats,now.getMonth(),allExercises);
   const ratio=Math.round(runs.length/Math.max(allStrength.length,1));
@@ -1796,6 +1843,11 @@ export default function App(){
 
           {/* Running section */}
           <div style={{...S.sectionLabel,marginTop:4}}>🏃 Running</div>
+          {runningMuscleAlerts.length>0&&(
+            <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:12,padding:"12px 16px",marginBottom:12,fontSize:13,color:"#92400e",lineHeight:1.6}}>
+              <strong>{runningMuscleAlerts[0].emoji} {runningMuscleAlerts[0].label}</strong> hasn't been trained in {runningMuscleAlerts[0].days} days{runningMuscleAlerts.length>1?` (+${runningMuscleAlerts.length-1} more)`:""} — a quick session could help support your running.
+            </div>
+          )}
           <div style={S.card}>
             <RunStatsPanel runs={runs}/>
           </div>
@@ -1964,7 +2016,7 @@ export default function App(){
 
       </div>
     </div>
-    <ToastStack pbs={pbs} xpGain={xpGain} challengeDone={challengeDone} stravaError={stravaError} allExercises={allExercises} muscleGroups={allMuscleGroups} onDismissPbs={()=>setPbs([])} onDismissXp={()=>setXpGain(null)} onDismissChallenge={()=>setChallengeDone(null)} onDismissStrava={()=>setStravaError(null)}/>
+    <ToastStack pbs={pbs} runPb={runPb} xpGain={xpGain} challengeDone={challengeDone} stravaError={stravaError} allExercises={allExercises} muscleGroups={allMuscleGroups} onDismissPbs={()=>setPbs([])} onDismissRunPb={()=>setRunPb(null)} onDismissXp={()=>setXpGain(null)} onDismissChallenge={()=>setChallengeDone(null)} onDismissStrava={()=>setStravaError(null)}/>
     {showLogManual&&<LogManualModal allExercises={allExercises} onSave={saveManualSession} onClose={()=>setShowLogManual(false)}/>}
     {showAddMuscle&&<AddMuscleModal onSave={addCustomMuscle} onClose={()=>setShowAddMuscle(false)}/>}
     {showAddExercise&&<AddExerciseModal allMuscleGroups={allMuscleGroups} onSave={addCustomExercise} onClose={()=>setShowAddExercise(false)}/>}
