@@ -1491,6 +1491,15 @@ export default function App(){
     setSyncing(false);
   }
 
+  async function deleteAccount() {
+    if(!confirm("Delete all your data from this app? This removes your cached activities, exercise notes, custom exercises, drafts, XP history and challenges. Your Strava account itself is unaffected. This can't be undone.")) return;
+    try {
+      await fetch("/api/auth/delete-account",{method:"POST"});
+    } catch(e) { console.error(e); }
+    if(athleteId) try{ localStorage.removeItem(`manual_sessions_${athleteId}`); }catch{}
+    window.location.href = "/";
+  }
+
   useEffect(()=>{
     if(insightDone.current||runs.length===0)return;
     insightDone.current=true;setInsightLoading(true);
@@ -1710,6 +1719,7 @@ export default function App(){
               {syncing?"Syncing…":"⟳ Sync Strava"}
             </button>
             <a href="/api/auth/logout" style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"5px 10px",fontSize:11,color:C.textMuted,cursor:"pointer",fontFamily:"inherit",textDecoration:"none",textAlign:"center"}}>Sign out</a>
+            <button onClick={deleteAccount} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"5px 10px",fontSize:11,color:C.textFaint,cursor:"pointer",fontFamily:"inherit"}}>Delete my data</button>
           </div>
         </div>
         <div style={{display:"flex",marginTop:20}}>

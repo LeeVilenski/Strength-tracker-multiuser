@@ -20,6 +20,8 @@ The app is a Progressive Web App — on Android, use Chrome's **Add to Home scre
 
 Everyone signs in with their own Strava account via **Connect with Strava** — there's no separate username/password. Each person only ever sees and edits their own runs, strength sessions, custom exercises, drafts, XP/levels and challenges. Use **Sign out** in the header to switch accounts on a shared device.
 
+**Delete my data** wipes everything this app has stored for your account — cached activities, exercise notes, custom exercises/muscle groups, drafts, best-effort history, XP/challenge history — and signs you out. It does not revoke the app's access to your Strava account (do that from Strava's own **Settings → My Apps** if you also want to free up a connected-athlete slot) or delete anything from Strava itself (e.g. activity descriptions already written). Signing in again afterwards starts fresh, as if for the first time.
+
 ---
 
 ## Dashboard
