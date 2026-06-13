@@ -459,6 +459,7 @@ function RunsTab({runs}){
           </div>
           {isOpen&&(
             <div style={{gridColumn:"1 / -1",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,padding:"4px 10px"}}>
+              {showIndexing&&<div style={{fontSize:11,color:C.blue,background:C.blueLight,border:`1px solid ${C.blueBorder}`,borderRadius:6,padding:"6px 8px",margin:"8px 0 4px",textAlign:"center",fontWeight:"500"}}>⏳ Still indexing {remaining} more run{remaining===1?"":"s"} — rankings may be incomplete</div>}
               <div style={{fontSize:11,color:C.textMuted,fontWeight:"600",textTransform:"uppercase",letterSpacing:"0.05em",padding:"8px 0 4px"}}>Fastest {m.label} {efforts.length>0?"splits":"runs"}</div>
               {top.map((r,idx)=>(
                 <a key={`${r.id}-${idx}`} href={`https://www.strava.com/activities/${r.id}`} target="_blank" rel="noopener noreferrer"
@@ -474,7 +475,6 @@ function RunsTab({runs}){
                   </div>
                 </a>
               ))}
-              {showIndexing&&<div style={{fontSize:11,color:C.textFaint,textAlign:"center",padding:"8px 0 4px"}}>Indexing {remaining} more run{remaining===1?"":"s"}…</div>}
             </div>
           )}
         </div>);
