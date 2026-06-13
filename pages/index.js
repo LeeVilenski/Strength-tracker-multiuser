@@ -1391,6 +1391,37 @@ function ApplyDraftModal({draft, sessions, notes, onSelect, onClose}){
   );
 }
 
+// ── Loading screen: rotating quirky messages while history/body data loads ──
+const LOADING_STEPS=[
+  {emoji:"👟",text:"Lacing up your trainers…"},
+  {emoji:"🔄",text:"Pulling your Strava history…"},
+  {emoji:"🏋️",text:"Counting every rep…"},
+  {emoji:"💪",text:"Mapping your muscles…"},
+  {emoji:"🔥",text:"Warming up…"},
+  {emoji:"🧮",text:"Crunching the numbers…"},
+  {emoji:"🏃",text:"Chasing down your PBs…"},
+  {emoji:"📡",text:"Syncing the miles…"},
+];
+
+function LoadingScreen(){
+  const [step,setStep]=useState(0);
+  useEffect(()=>{
+    const t=setInterval(()=>setStep(i=>(i+1)%LOADING_STEPS.length),1800);
+    return()=>clearInterval(t);
+  },[]);
+  const {emoji,text}=LOADING_STEPS[step];
+  return(
+    <div style={{...S.page,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",gap:14,padding:32}}>
+      <div className="loading-bounce" style={{fontSize:48}}>{emoji}</div>
+      <div style={{fontSize:15,fontWeight:"700",color:C.text}}>Strength Tracker</div>
+      <div style={{fontSize:13,color:C.textMuted,minHeight:18}}>{text}</div>
+      <div style={{width:140,height:4,borderRadius:2,background:C.border,overflow:"hidden"}}>
+        <div className="loading-fill" style={{height:"100%",borderRadius:2,background:C.orange}}/>
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ──
 export default function App(){
   const [view,setView]=useState("dashboard");
@@ -1685,7 +1716,7 @@ export default function App(){
     </div>
   );
 
-  if(loading)return <div style={{...S.page,display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh"}}><div style={{color:C.textMuted,fontSize:14}}>Loading...</div></div>;
+  if(loading)return <LoadingScreen/>;
   if(!connected)return(
     <div style={{...S.page,display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",padding:32}}>
       <div style={{textAlign:"center",maxWidth:320}}>

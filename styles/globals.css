@@ -3,3 +3,16 @@ html, body { background: #f4f5f7; }
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
 input[type=date]::-webkit-calendar-picker-indicator { opacity: 0.5; }
+
+@keyframes loading-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.loading-bounce { display: inline-block; animation: loading-bounce 0.6s ease-in-out infinite; }
+
+@keyframes loading-fill {
+  0% { width: 0%; }
+  50% { width: 100%; }
+  100% { width: 0%; }
+}
+.loading-fill { animation: loading-fill 1.6s ease-in-out infinite; }
