@@ -8,4 +8,11 @@
       "D0:B2:9B:9C:30:F8:50:86:CB:B5:17:B6:1B:95:F5:28:82:B9:A5:4F:F1:72:2A:B4:E0:38:40:7A:37:3F:5C:C3"
     ]
   }
+}, {
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.vercel.strength_tracker_multiuser.twa",
+    "sha256_cert_fingerprints": ["A2:97:3D:D8:23:3A:A7:D7:93:04:F6:DE:7C:A7:C3:06:A4:3D:B5:CA:74:BE:54:33:13:2B:BE:5C:79:99:1E:4B"]
+  }
 }]
