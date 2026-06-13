@@ -1746,11 +1746,13 @@ export default function App(){
               <div style={{fontSize:22,color:C.orange,fontWeight:"700",lineHeight:1}}>{totalRunKm.toFixed(0)}km</div>
               <div style={{fontSize:11,color:"#c2410c",marginTop:2}}>{runs.length} runs total</div>
             </div>
-            <button onClick={forceSync} disabled={syncing} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"5px 10px",fontSize:11,color:C.textMuted,cursor:"pointer",fontFamily:"inherit",opacity:syncing?0.6:1}}>
-              {syncing?"Syncing…":"⟳ Sync Strava"}
-            </button>
-            <a href="/api/auth/logout" style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"5px 10px",fontSize:11,color:C.textMuted,cursor:"pointer",fontFamily:"inherit",textDecoration:"none",textAlign:"center"}}>Sign out</a>
-            <button onClick={deleteAccount} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"5px 10px",fontSize:11,color:C.textFaint,cursor:"pointer",fontFamily:"inherit"}}>Delete my data</button>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
+              <button onClick={forceSync} disabled={syncing} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"5px 10px",fontSize:11,color:C.textMuted,cursor:"pointer",fontFamily:"inherit",opacity:syncing?0.6:1,whiteSpace:"nowrap"}}>
+                {syncing?"Syncing…":"⟳ Sync Strava"}
+              </button>
+              <a href="/api/auth/logout" style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"5px 10px",fontSize:11,color:C.textMuted,cursor:"pointer",fontFamily:"inherit",textDecoration:"none",textAlign:"center",whiteSpace:"nowrap"}}>Sign out</a>
+              <button onClick={deleteAccount} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"5px 10px",fontSize:11,color:C.textFaint,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>Delete my data</button>
+            </div>
           </div>
         </div>
         <div style={{display:"flex",marginTop:20}}>
