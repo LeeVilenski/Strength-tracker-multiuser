@@ -4,6 +4,9 @@ import { MUSCLE_GROUPS as BUILTIN_MUSCLE_GROUPS, computeMuscleStats, diffMuscleS
 import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES, getExercisesByCategory } from "../lib/exercises";
 import BodyMap from "../components/BodyMap";
 
+// AI Coach insight panel is built but not yet ready to be surfaced to users — flip to true to re-enable.
+const SHOW_AI_COACH = false;
+
 const EMOJI_OPTIONS = ["💪","🏋️","🔱","⚡","💥","🎯","🦵","🦶","🔥","❤️","🌊","⛰️","🛡️","🎖️","🧗","🤸"];
 const COLOR_OPTIONS = [
   {color:"#ef4444",lightBg:"#fef2f2",border:"#fecaca"},{color:"#8b5cf6",lightBg:"#f5f3ff",border:"#ddd6fe"},
@@ -1554,7 +1557,7 @@ export default function App(){
   }
 
   useEffect(()=>{
-    if(insightDone.current||runs.length===0)return;
+    if(!SHOW_AI_COACH||insightDone.current||runs.length===0)return;
     insightDone.current=true;setInsightLoading(true);
     fetch("/api/insight",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({recentRuns:runs.slice(0,10).map(r=>`${r.name} ${fmtDist(r.distance)}`).join(", "),strengthSummary:allStrength.length===0?"NONE":allStrength.slice(0,5).map(s=>`${s.name} ${fmtDuration(s.duration)}`).join(", "),strengthCount:allStrength.length,runCount:runs.length})})
       .then(r=>r.json()).then(d=>setInsight(d.insight||"")).catch(()=>{}).finally(()=>setInsightLoading(false));
@@ -1859,10 +1862,10 @@ export default function App(){
           </div>
 
           {/* AI insight */}
-          <div style={{background:C.blueLight,border:`1px solid ${C.blueBorder}`,borderRadius:12,padding:"14px 16px",marginBottom:14}}>
+          {SHOW_AI_COACH&&<div style={{background:C.blueLight,border:`1px solid ${C.blueBorder}`,borderRadius:12,padding:"14px 16px",marginBottom:14}}>
             <div style={{fontSize:11,color:C.blue,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8,fontWeight:"600"}}>AI Coach</div>
             {insightLoading?<div style={{color:C.textMuted,fontSize:13}}>Analysing your training...</div>:<div style={{color:C.textSecondary,fontSize:14,lineHeight:1.7}}>{insight||"Add ANTHROPIC_API_KEY in Vercel to enable this."}</div>}
-          </div>
+          </div>}
 
           {allStrength.length===0&&<div style={{background:C.greenLight,border:`1px solid ${C.greenBorder}`,borderRadius:12,padding:"14px 16px",marginBottom:14}}><div style={{fontSize:11,color:C.green,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8,fontWeight:"600"}}>How to get started</div><div style={{color:"#166534",fontSize:13,lineHeight:1.8}}>Record on your Forerunner as <strong>Workout</strong> or <strong>Strength Training</strong>, or tap "+ Log Session" in the Strength tab.</div></div>}
 
