@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     }
   } else if (req.method === "POST") {
     try {
-      const { activity_id, notes, xpGain } = req.body;
+      const { activity_id, notes, xpGain, challengeCompleted } = req.body;
       if (!activity_id || !notes) {
         return res.status(400).json({ error: "activity_id and notes required" });
       }
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
         try {
           const customExercises = await getCustomExercises(athleteId);
           const allExercises = [...EXERCISE_LIBRARY, ...customExercises];
-          const block = buildExerciseBlock(notes, allExercises, { xpGain, appUrl: process.env.NEXT_PUBLIC_APP_URL });
+          const block = buildExerciseBlock(notes, allExercises, { xpGain, challengeCompleted, appUrl: process.env.NEXT_PUBLIC_APP_URL });
           const activity = await getStravaActivity(athleteId, activity_id);
           const merged = mergeDescription(activity.description, block);
           await updateStravaActivityDescription(athleteId, activity_id, merged);

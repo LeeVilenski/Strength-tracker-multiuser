@@ -1584,17 +1584,23 @@ export default function App(){
     try{ localStorage.setItem(`run_pb_seen_${athleteId}`, JSON.stringify([...seen,latest.id].slice(-200))); }catch{}
   },[runs,athleteId]);
 
+  // Returns the current challenge if `after` newly satisfies it (and it
+  // wasn't already marked complete), else null.
+  function detectChallengeCompletion(beforeNotes, beforeStrength, afterNotes, afterStrength) {
+    if(!challenge||!currentChallengeRow||currentChallengeRow.completed)return null;
+    const beforeProgress=computeChallengeProgress(challenge,beforeNotes,beforeStrength,monthKey);
+    const afterProgress=computeChallengeProgress(challenge,afterNotes,afterStrength,monthKey);
+    return (!beforeProgress.done&&afterProgress.done)?challenge:null;
+  }
+
   // Detect a freshly-completed monthly challenge, persist the completion +
   // body-XP bonus, and surface the toast.
   async function checkChallengeCompletion(beforeNotes, beforeStrength, afterNotes, afterStrength) {
-    if(!challenge||!currentChallengeRow||currentChallengeRow.completed)return;
-    const beforeProgress=computeChallengeProgress(challenge,beforeNotes,beforeStrength,monthKey);
-    const afterProgress=computeChallengeProgress(challenge,afterNotes,afterStrength,monthKey);
-    if(!beforeProgress.done&&afterProgress.done){
-      setChallengeDone(challenge);
-      await fetch("/api/challenges",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"complete",monthKey,bonusXp:CHALLENGE_BONUS_XP})}).catch(()=>{});
-      setMonthlyChallenges(prev=>prev.map(c=>c.monthKey===monthKey?{...c,completed:true,bonusXp:CHALLENGE_BONUS_XP}:c));
-    }
+    const completed=detectChallengeCompletion(beforeNotes,beforeStrength,afterNotes,afterStrength);
+    if(!completed)return;
+    setChallengeDone(completed);
+    await fetch("/api/challenges",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"complete",monthKey,bonusXp:CHALLENGE_BONUS_XP})}).catch(()=>{});
+    setMonthlyChallenges(prev=>prev.map(c=>c.monthKey===monthKey?{...c,completed:true,bonusXp:CHALLENGE_BONUS_XP}:c));
   }
 
   async function saveManualSession(session, noteData) {
@@ -1673,7 +1679,9 @@ export default function App(){
     const before=computeMuscleStats(notes,allStrength,allExercises,bodyBonusXp);
     const after=computeMuscleStats(updatedNotes,allStrength,allExercises,bodyBonusXp);
     const xpGain=diffMuscleStats(before,after);
-    const syncRes=await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({activity_id:activityId,notes:enrichForm,xpGain:enrichXpGain(xpGain,allMuscleGroups)})}).then(r=>r.json()).catch(()=>null);
+    const completedChallenge=detectChallengeCompletion(notes,allStrength,updatedNotes,allStrength);
+    const challengeCompleted=completedChallenge?{title:completedChallenge.title,emoji:completedChallenge.mg.emoji}:null;
+    const syncRes=await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({activity_id:activityId,notes:enrichForm,xpGain:enrichXpGain(xpGain,allMuscleGroups),challengeCompleted})}).then(r=>r.json()).catch(()=>null);
     if(syncRes?.stravaError)setStravaError(syncRes.stravaError);
     setNotes(updatedNotes);
     setSaving(false);setEnriching(null);
