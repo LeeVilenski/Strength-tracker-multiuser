@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   if (!athleteId) return;
 
   try {
-    const { session, notes, xpGain } = req.body;
+    const { session, notes, xpGain, challengeCompleted } = req.body;
     if (!session?.id || !session?.date) {
       return res.status(400).json({ error: "session required" });
     }
@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     const customExercises = await getCustomExercises(athleteId);
     const allExercises = [...EXERCISE_LIBRARY, ...customExercises];
 
-    const block = buildExerciseBlock(notes, allExercises, { xpGain, appUrl: process.env.NEXT_PUBLIC_APP_URL });
+    const block = buildExerciseBlock(notes, allExercises, { xpGain, challengeCompleted, appUrl: process.env.NEXT_PUBLIC_APP_URL });
     if (!block) {
       return res.status(400).json({ error: "No logged sets to push - add exercises first" });
     }

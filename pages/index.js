@@ -111,6 +111,11 @@ function enrichXpGain(xpGain,muscleGroups){
   };
 }
 
+// Shrink a just-completed challenge down to the bits the Strava description needs.
+function challengeCompletionPayload(challenge){
+  return challenge?{title:challenge.title,emoji:challenge.mg.emoji}:null;
+}
+
 const C={bg:"#f4f5f7",surface:"#ffffff",border:"#e5e7eb",text:"#111827",textSecondary:"#374151",textMuted:"#6b7280",textFaint:"#9ca3af",orange:"#ea580c",orangeLight:"#fff7ed",orangeBorder:"#fed7aa",blue:"#2563eb",blueLight:"#eff6ff",blueBorder:"#bfdbfe",green:"#16a34a",greenLight:"#f0fdf4",greenBorder:"#bbf7d0",red:"#dc2626",redLight:"#fef2f2",redBorder:"#fecaca"};
 const S={
   page:{fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",background:C.bg,minHeight:"100vh",color:C.text,maxWidth:520,margin:"0 auto"},
@@ -1604,12 +1609,13 @@ export default function App(){
   }
 
   async function saveManualSession(session, noteData) {
-    const updated = [...manualSessions, session];
+    const updatedNotes={...notes,[session.id]:noteData};
+    const updatedStrength=[...allStrength,session];
+    const challengeCompleted=challengeCompletionPayload(detectChallengeCompletion(notes,allStrength,updatedNotes,updatedStrength));
+    const updated = [...manualSessions, challengeCompleted?{...session,completedChallenge:challengeCompleted}:session];
     persistManualSessions(updated);
     // Save exercise notes using the session id
     await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({activity_id:session.id,notes:noteData})});
-    const updatedNotes={...notes,[session.id]:noteData};
-    const updatedStrength=[...allStrength,session];
     const before=computeMuscleStats(notes,allStrength,allExercises,bodyBonusXp);
     const after=computeMuscleStats(updatedNotes,updatedStrength,allExercises,bodyBonusXp);
     setNotes(updatedNotes);
@@ -1644,7 +1650,7 @@ export default function App(){
       const before=computeMuscleStats(beforeNotes,beforeStrength,allExercises,bodyBonusXp);
       const after=computeMuscleStats(notes,allStrength,allExercises,bodyBonusXp);
       const xpGain=diffMuscleStats(before,after);
-      const res = await fetch("/api/push-strava",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session,notes:notes[session.id],xpGain:enrichXpGain(xpGain,allMuscleGroups)})}).then(r=>r.json());
+      const res = await fetch("/api/push-strava",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session,notes:notes[session.id],xpGain:enrichXpGain(xpGain,allMuscleGroups),challengeCompleted:session.completedChallenge||null})}).then(r=>r.json());
       if(res.error){ setStravaError(res.error); return; }
       const updated = manualSessions.map(s=>s.id===session.id?{...s,stravaActivityId:res.activityId}:s);
       persistManualSessions(updated);
@@ -1679,10 +1685,15 @@ export default function App(){
     const before=computeMuscleStats(notes,allStrength,allExercises,bodyBonusXp);
     const after=computeMuscleStats(updatedNotes,allStrength,allExercises,bodyBonusXp);
     const xpGain=diffMuscleStats(before,after);
-    const completedChallenge=detectChallengeCompletion(notes,allStrength,updatedNotes,allStrength);
-    const challengeCompleted=completedChallenge?{title:completedChallenge.title,emoji:completedChallenge.mg.emoji}:null;
+    const challengeCompleted=challengeCompletionPayload(detectChallengeCompletion(notes,allStrength,updatedNotes,allStrength));
     const syncRes=await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({activity_id:activityId,notes:enrichForm,xpGain:enrichXpGain(xpGain,allMuscleGroups),challengeCompleted})}).then(r=>r.json()).catch(()=>null);
     if(syncRes?.stravaError)setStravaError(syncRes.stravaError);
+    // Manual sessions aren't on Strava yet — remember the win so it can be
+    // included in the description whenever this session does get pushed.
+    if(challengeCompleted){
+      const manualSession=manualSessions.find(s=>s.id===activityId&&!s.stravaActivityId);
+      if(manualSession)persistManualSessions(manualSessions.map(s=>s===manualSession?{...s,completedChallenge:challengeCompleted}:s));
+    }
     setNotes(updatedNotes);
     setSaving(false);setEnriching(null);
     if(newPBs.length>0)setPbs(newPBs);
