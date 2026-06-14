@@ -993,7 +993,7 @@ function ExercisePills({notes,onEdit,allExercises}){
 function EnrichForm({form,setForm,onSave,onCancel,saving,notes,activityId,allExercises}){
   const [showPicker,setShowPicker]=useState(false);
   const activeExIds=Object.keys(form.exercises||{});
-  const activeExercises=allExercises.filter(ex=>activeExIds.includes(ex.id));
+  const activeExercises=activeExIds.map(id=>allExercises.find(ex=>ex.id===id)).filter(Boolean);
 
   function addExercise(ex){
     if(form.exercises?.[ex.id])return; // already added
