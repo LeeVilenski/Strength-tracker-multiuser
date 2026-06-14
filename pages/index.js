@@ -1203,7 +1203,7 @@ function LogManualModal({allExercises, onSave, onClose}){
     const session = {
       id: "manual_"+Date.now(),
       name: name.trim(),
-      sport_type: "Workout",
+      sport_type: "WeightTraining",
       date,
       distance:0, duration:(parseInt(durationMin)||0)*60+(parseInt(durationSec)||0),
       calories, effort:0, avg_hr:parseInt(avgHr)||null, max_hr:parseInt(maxHr)||null, elevation:0,
