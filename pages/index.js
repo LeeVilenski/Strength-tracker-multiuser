@@ -794,13 +794,20 @@ function AddExerciseModal({allMuscleGroups,onSave,onClose}){
 }
 
 // ── Challenge card — prominent version ──
-function ChallengeCard({challenge,notes,strength}){
+function ChallengeCard({challenge,notes,strength,completed}){
   if(!challenge)return null;
   const {mg,title,description,type,exId,exLabel}=challenge;
   const now=new Date();
   const daysLeft=new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate();
   const monthName=now.toLocaleDateString("en-GB",{month:"long"});
-  const {current,target,pct,done}=computeChallengeProgress(challenge,notes,strength);
+  const computed=computeChallengeProgress(challenge,notes,strength);
+  // Once a challenge has been marked complete (bonus XP awarded & persisted),
+  // keep showing it as complete — later recomputation (e.g. a "pb" challenge's
+  // target shifting as more historical sessions load) shouldn't make it revert.
+  const done=completed||computed.done;
+  const current=computed.current;
+  const target=computed.target;
+  const pct=done?100:computed.pct;
 
   // Reward tiers for display
   const tiers=[
@@ -1848,7 +1855,7 @@ export default function App(){
           <MuscleCard mgId="body" stats={muscleStats} muscleGroups={allMuscleGroups} allExercises={allExercises} notes={notes} strength={sortedStrength} monthlyChallenges={monthlyChallenges} expanded={expandedMuscle==="body"} onExpand={()=>setExpandedMuscle(expandedMuscle==="body"?null:"body")}/>
 
           {/* Monthly challenge — top of dashboard */}
-          <ChallengeCard challenge={challenge} notes={notes} strength={[...strength,...manualSessions]}/>
+          <ChallengeCard challenge={challenge} notes={notes} strength={[...strength,...manualSessions]} completed={currentChallengeRow?.completed}/>
 
           {/* Past challenges history */}
           <PastChallengesSection monthlyChallenges={monthlyChallenges} currentMonthKey={monthKey} notes={notes} strength={[...strength,...manualSessions]} expanded={showPastChallenges} onToggle={()=>setShowPastChallenges(!showPastChallenges)}/>
