@@ -1180,7 +1180,7 @@ function LogManualModal({allExercises, onSave, onClose}){
   const [durationSec, setDurationSec] = useState("");
   const [avgHr, setAvgHr] = useState("");
   const [maxHr, setMaxHr] = useState("");
-  const [calories, setCalories] = useState(0);
+  const [calories, setCalories] = useState("");
   const [hrRecords, setHrRecords] = useState(null);
   const [fitImportStatus, setFitImportStatus] = useState("");
   const [exercises, setExercises] = useState({});
@@ -1204,7 +1204,7 @@ function LogManualModal({allExercises, onSave, onClose}){
         if(res.avgHr) setAvgHr(String(Math.round(res.avgHr)));
         if(res.maxHr) setMaxHr(String(Math.round(res.maxHr)));
         if(res.durationSec){ setDurationMin(String(Math.floor(res.durationSec/60))); setDurationSec(String(res.durationSec%60)); }
-        if(res.calories) setCalories(Math.round(res.calories));
+        if(res.calories) setCalories(String(Math.round(res.calories)));
         setHrRecords(res.hrRecords||null);
         setFitImportStatus(`Imported ${file.name}${res.hrRecords?.length?` — ${res.hrRecords.length} HR samples`:""}`);
       }catch(err){
@@ -1223,7 +1223,7 @@ function LogManualModal({allExercises, onSave, onClose}){
       sport_type: "WeightTraining",
       date,
       distance:0, duration:(parseInt(durationMin)||0)*60+(parseInt(durationSec)||0),
-      calories, effort:0, avg_hr:parseInt(avgHr)||null, max_hr:parseInt(maxHr)||null, elevation:0,
+      calories: parseInt(calories)||0, effort:0, avg_hr:parseInt(avgHr)||null, max_hr:parseInt(maxHr)||null, elevation:0,
       isManual: true,
       ...(hrRecords?{hrRecords}:{}),
     };
@@ -1272,6 +1272,11 @@ function LogManualModal({allExercises, onSave, onClose}){
             <div style={{fontSize:12,color:C.textMuted,fontWeight:"500",marginBottom:5}}>Max HR (optional)</div>
             <input type="number" style={S.input} placeholder="e.g. 165" min="0" value={maxHr} onChange={e=>setMaxHr(e.target.value)}/>
           </div>
+        </div>
+
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:12,color:C.textMuted,fontWeight:"500",marginBottom:5}}>Calories (optional)</div>
+          <input type="number" style={S.input} placeholder="e.g. 250" min="0" value={calories} onChange={e=>setCalories(e.target.value)}/>
         </div>
 
         <div style={{marginBottom:12}}>
