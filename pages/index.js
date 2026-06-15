@@ -282,6 +282,7 @@ function RunStatsPanel({runs}){
   const thisWeekKm=weeklyKm[weeklyKm.length-1];
   const lastWeekKm=weeklyKm[weeklyKm.length-2]||0;
   const avgWeekKm=weeklyKm.reduce((a,b)=>a+b,0)/4;
+  const hasRunThisWeek=thisWeekKm>0;
 
   // Pace trend (avg speed of runs > 1km, last 8 runs)
   const recentRuns=[...runs].filter(r=>r.distance>1000&&r.duration>0).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8).reverse();
@@ -322,14 +323,14 @@ function RunStatsPanel({runs}){
               <div style={{fontSize:11,color:paceImproved?C.green:"#d97706",fontWeight:"500",marginTop:2}}>{paceImproved?"↓ Getting faster":"→ Holding steady"}</div>
             </div>
             <div style={{textAlign:"right"}}>
-              <div style={{fontSize:18,fontWeight:"700",color:paceImproved?C.green:C.textSecondary}}>{fmtPace(latestPace)}</div>
+              <div style={{fontSize:18,fontWeight:"700",color:hasRunThisWeek&&paceImproved?C.green:C.textSecondary}}>{hasRunThisWeek?fmtPace(latestPace):"—"}</div>
               <div style={{fontSize:10,color:C.textFaint}}>latest avg</div>
             </div>
           </div>
           <Sparkline values={paces.map(p=>1/p)} color={C.orange} width={260} height={30} displayValues={paces} formatValue={fmtPace} labels={recentRuns.map(r=>dayLabel(r.date))}/>
           <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
             <span style={{fontSize:10,color:C.textFaint}}>{fmtPace(firstPace)}</span>
-            <span style={{fontSize:10,color:C.textFaint}}>now: {fmtPace(latestPace)}</span>
+            <span style={{fontSize:10,color:C.textFaint}}>now: {hasRunThisWeek?fmtPace(latestPace):"—"}</span>
           </div>
         </div>
       )}
