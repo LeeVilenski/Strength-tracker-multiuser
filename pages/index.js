@@ -654,7 +654,7 @@ function SetsInput({exercise, value, onChange, notes, activityId}){
 }
 
 // ── Muscle card ──
-function MuscleCard({mgId,stats,muscleGroups,allExercises,notes,strength,expanded,onExpand}){
+function MuscleCard({mgId,stats,muscleGroups,allExercises,notes,strength,monthlyChallenges,expanded,onExpand}){
   const isBody=mgId==="body";
   const mg=isBody?BODY_GROUP:muscleGroups[mgId];if(!mg)return null;
   const s=stats[mgId]||{level:0,currentXp:0,xpNeeded:160,effectiveXp:0,lastTrained:null,streak:0,multiplier:1};
@@ -674,7 +674,16 @@ function MuscleCard({mgId,stats,muscleGroups,allExercises,notes,strength,expande
       if(xp>0){sessionXp+=xp;contributions.push({exId,value,xp,isPrimary,label:allExercises.find(e=>e.id===exId)?.label||exId});}
     }
     return{date:act.date,name:act.name,sessionXp,contributions};
-  }).filter(h=>h.sessionXp>0).sort((a,b)=>b.date.localeCompare(a.date));
+  }).filter(h=>h.sessionXp>0);
+  // The Overall card also earns a one-off bonus for each completed monthly challenge.
+  if(isBody){
+    for(const c of (monthlyChallenges||[])){
+      if(c.completed&&c.bonusXp>0){
+        xpHistory.push({date:c.completedAt||c.monthKey+"-28",name:`🏆 ${monthLabel(c.monthKey)} Challenge Complete`,sessionXp:c.bonusXp,contributions:[{xp:c.bonusXp,isPrimary:true,label:c.challenge.title}]});
+      }
+    }
+  }
+  xpHistory.sort((a,b)=>b.date.localeCompare(a.date));
 
   // Streak fire display
   const streakDots = Array.from({length:5},(_,i)=>i<streak);
@@ -1605,7 +1614,7 @@ export default function App(){
     if(!completed)return;
     setChallengeDone(completed);
     await fetch("/api/challenges",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"complete",monthKey,bonusXp:CHALLENGE_BONUS_XP})}).catch(()=>{});
-    setMonthlyChallenges(prev=>prev.map(c=>c.monthKey===monthKey?{...c,completed:true,bonusXp:CHALLENGE_BONUS_XP}:c));
+    setMonthlyChallenges(prev=>prev.map(c=>c.monthKey===monthKey?{...c,completed:true,bonusXp:CHALLENGE_BONUS_XP,completedAt:new Date().toISOString().slice(0,10)}:c));
   }
 
   async function saveManualSession(session, noteData) {
@@ -1835,7 +1844,7 @@ export default function App(){
 
         {view==="dashboard"&&(<>
           {/* Overall ("body") level — fed by all training, decays fast */}
-          <MuscleCard mgId="body" stats={muscleStats} muscleGroups={allMuscleGroups} allExercises={allExercises} notes={notes} strength={sortedStrength} expanded={expandedMuscle==="body"} onExpand={()=>setExpandedMuscle(expandedMuscle==="body"?null:"body")}/>
+          <MuscleCard mgId="body" stats={muscleStats} muscleGroups={allMuscleGroups} allExercises={allExercises} notes={notes} strength={sortedStrength} monthlyChallenges={monthlyChallenges} expanded={expandedMuscle==="body"} onExpand={()=>setExpandedMuscle(expandedMuscle==="body"?null:"body")}/>
 
           {/* Monthly challenge — top of dashboard */}
           <ChallengeCard challenge={challenge} notes={notes} strength={[...strength,...manualSessions]}/>
