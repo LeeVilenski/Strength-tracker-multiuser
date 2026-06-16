@@ -1000,6 +1000,29 @@ function EditableTitle({value,onSave}){
   return <div onClick={()=>setEditing(true)} title="Click to rename" style={{fontSize:15,fontWeight:"600",color:C.text,cursor:"pointer"}}>{value}</div>;
 }
 
+function EditableDuration({value,onSave}){
+  const [editing,setEditing]=useState(false);
+  const [min,setMin]=useState(String(Math.floor((value||0)/60)));
+  const [sec,setSec]=useState(String((value||0)%60));
+  useEffect(()=>{setMin(String(Math.floor((value||0)/60)));setSec(String((value||0)%60));},[value]);
+  function commit(){
+    setEditing(false);
+    const total=(parseInt(min)||0)*60+(parseInt(sec)||0);
+    if(total!==value)onSave(total);
+  }
+  const reset=()=>{setMin(String(Math.floor((value||0)/60)));setSec(String((value||0)%60));setEditing(false);};
+  const inputStyle={width:40,fontSize:14,fontWeight:"600",color:C.text,background:C.bg,border:`1px solid ${C.blueBorder}`,borderRadius:6,padding:"1px 4px",fontFamily:"inherit",outline:"none",textAlign:"center"};
+  const kd=e=>{if(e.key==="Enter")commit();if(e.key==="Escape")reset();};
+  if(editing){
+    return(<div style={{display:"flex",gap:3,alignItems:"center",justifyContent:"flex-end"}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))commit();}}>
+      <input autoFocus type="number" min="0" value={min} onChange={e=>setMin(e.target.value)} onKeyDown={kd} style={inputStyle}/>
+      <span style={{color:C.textMuted,fontSize:12}}>:</span>
+      <input type="number" min="0" max="59" value={sec} onChange={e=>setSec(e.target.value)} onKeyDown={kd} style={inputStyle}/>
+    </div>);
+  }
+  return <div onClick={()=>setEditing(true)} title="Click to edit duration" style={{fontSize:16,color:C.blue,fontWeight:"600",cursor:"pointer"}}>{fmtDuration(value)}</div>;
+}
+
 function ExercisePills({notes,onEdit,allExercises}){
   const entries=Object.entries(notes.exercises||{}).filter(([,v])=>v&&(typeof v==="object"?v.sets?.some(s=>s.reps):true));
   return(
@@ -1695,6 +1718,10 @@ export default function App(){
     renameOnStrava(activityId, newName);
   }
 
+  function updateManualSessionField(sessionId, field, value) {
+    persistManualSessions(manualSessions.map(s=>s.id===sessionId?{...s,[field]:value}:s));
+  }
+
   async function renameOnStrava(activityId, name) {
     const res = await fetch("/api/rename",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({activity_id:activityId,name})}).then(r=>r.json()).catch(e=>({error:e.message}));
     if(res?.error) setStravaError(res.error);
@@ -2043,7 +2070,7 @@ export default function App(){
                   <div style={{fontSize:12,color:C.textMuted,marginTop:3}}>{dayLabel(s.date)}{(!s.isManual||s.stravaActivityId)&&<a href={`https://www.strava.com/activities/${s.isManual?s.stravaActivityId:s.id}`} target="_blank" rel="noopener noreferrer" style={{marginLeft:8,color:C.textFaint,textDecoration:"none"}}>↗ Strava</a>}</div>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
-                  <div style={{fontSize:16,color:C.blue,fontWeight:"600"}}>{fmtDuration(s.duration)}</div>
+                  {s.isManual&&!s.stravaActivityId?<EditableDuration value={s.duration} onSave={d=>updateManualSessionField(s.id,"duration",d)}/>:<div style={{fontSize:16,color:C.blue,fontWeight:"600"}}>{fmtDuration(s.duration)}</div>}
                   {s.calories>0&&<div style={{fontSize:12,color:C.textFaint}}>{s.calories}kcal</div>}
                   {s.isManual&&!s.stravaActivityId&&<button onClick={()=>pushManualSessionToStrava(s)} disabled={pushingToStrava===s.id} style={{background:"none",border:`1px solid ${C.blueBorder}`,borderRadius:6,padding:"2px 8px",color:C.blue,fontSize:11,cursor:pushingToStrava===s.id?"default":"pointer",fontFamily:"inherit",marginTop:4,display:"block",marginLeft:"auto"}}>{pushingToStrava===s.id?"Pushing…":"Push to Strava"}</button>}
                   {s.isManual&&<button onClick={()=>deleteManualSession(s.id)} style={{background:"none",border:"none",color:C.textFaint,fontSize:11,cursor:"pointer",padding:0,fontFamily:"inherit",marginTop:4}}>delete</button>}
