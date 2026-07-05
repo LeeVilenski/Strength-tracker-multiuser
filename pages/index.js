@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
-import { MUSCLE_GROUPS as BUILTIN_MUSCLE_GROUPS, computeMuscleStats, diffMuscleStats, detectPBs, generateMonthlyChallenge, computeChallengeProgress, xpForExercise, totalRepsFromValue, bestWeightFromValue, summariseSets, BODY_GROUP, BODY_DECAY_GRACE_DAYS, DECAY_GRACE_DAYS, CHALLENGE_BONUS_XP, RUNNING_MUSCLES } from "../lib/game";
+import { MUSCLE_GROUPS as BUILTIN_MUSCLE_GROUPS, computeMuscleStats, diffMuscleStats, detectPBs, generateMonthlyChallenge, computeChallengeProgress, xpForExercise, totalRepsFromValue, bestWeightFromValue, bestSetRepsFromValue, summariseSets, BODY_GROUP, BODY_DECAY_GRACE_DAYS, DECAY_GRACE_DAYS, CHALLENGE_BONUS_XP, RUNNING_MUSCLES } from "../lib/game";
 import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES, getExercisesByCategory } from "../lib/exercises";
 import BodyMap from "../components/BodyMap";
 
@@ -619,7 +619,7 @@ function SetsInput({exercise, value, onChange, notes, activityId}){
   function removeSet(i){if(sets.length>1)update(sets.filter((_,idx)=>idx!==i));}
   function updateSet(i,field,val){const s=[...sets];s[i]={...s[i],[field]:val};update(s);}
   const prevVals=Object.entries(notes||{}).filter(([id])=>id!==activityId).map(([,n])=>n?.exercises?.[exercise.id]).filter(Boolean);
-  const prevMaxReps=Math.max(0,...prevVals.map(v=>totalRepsFromValue(v)));
+  const prevMaxReps=Math.max(0,...prevVals.map(v=>bestSetRepsFromValue(v)));
   const prevMaxWeight=Math.max(0,...prevVals.map(v=>bestWeightFromValue(v)));
   return(
     <div>
