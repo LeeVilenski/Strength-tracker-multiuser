@@ -794,13 +794,13 @@ function AddExerciseModal({allMuscleGroups,onSave,onClose}){
 }
 
 // ── Challenge card — prominent version ──
-function ChallengeCard({challenge,notes,strength,completed}){
+function ChallengeCard({challenge,notes,strength,completed,allExercises}){
   if(!challenge)return null;
   const {mg,title,description,type,exId,exLabel}=challenge;
   const now=new Date();
   const daysLeft=new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate();
   const monthName=now.toLocaleDateString("en-GB",{month:"long"});
-  const computed=computeChallengeProgress(challenge,notes,strength);
+  const computed=computeChallengeProgress(challenge,notes,strength,undefined,allExercises);
   // Once a challenge has been marked complete (bonus XP awarded & persisted),
   // keep showing it as complete — later recomputation (e.g. a "pb" challenge's
   // target shifting as more historical sessions load) shouldn't make it revert.
@@ -867,7 +867,7 @@ function ChallengeCard({challenge,notes,strength,completed}){
 }
 
 // ── Past monthly challenges — collapsible history ──
-function PastChallengesSection({monthlyChallenges,currentMonthKey,notes,strength,expanded,onToggle}){
+function PastChallengesSection({monthlyChallenges,currentMonthKey,notes,strength,expanded,onToggle,allExercises}){
   const past=monthlyChallenges.filter(c=>c.monthKey!==currentMonthKey).sort((a,b)=>b.monthKey.localeCompare(a.monthKey));
   if(past.length===0)return null;
   return(
@@ -878,7 +878,7 @@ function PastChallengesSection({monthlyChallenges,currentMonthKey,notes,strength
       </div>
       {expanded&&past.map(c=>{
         const {mg,title}=c.challenge;
-        const {pct}=computeChallengeProgress(c.challenge,notes,strength,c.monthKey);
+        const {pct}=computeChallengeProgress(c.challenge,notes,strength,c.monthKey,allExercises);
         return(
           <div key={c.monthKey} style={{marginTop:10,padding:"10px 12px",background:c.completed?"#f0fdf4":C.bg,border:`1px solid ${c.completed?C.greenBorder:C.border}`,borderRadius:8}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
@@ -902,11 +902,11 @@ function PBToast({pbs,allExercises,onDismiss}){
   if(!pbs.length)return null;
   const repPBs=pbs.filter(p=>!p.endsWith("_first")&&!p.endsWith("_weight")).map(p=>allExercises.find(e=>e.id===p)?.label).filter(Boolean);
   const weightPBs=pbs.filter(p=>p.endsWith("_weight")).map(p=>allExercises.find(e=>e.id===p.replace("_weight",""))?.label).filter(Boolean);
-  const firstEver=pbs.some(p=>p.endsWith("_first"));
+  const firstPBs=pbs.filter(p=>p.endsWith("_first")).map(p=>allExercises.find(e=>e.id===p.replace("_first",""))?.label).filter(Boolean);
   return(
     <div style={{background:"#111827",color:"#fff",borderRadius:12,padding:"12px 20px",boxShadow:"0 8px 24px rgba(0,0,0,0.2)",display:"flex",gap:10,alignItems:"center",width:"100%"}}>
       <span style={{fontSize:20}}>🏆</span>
-      <div><div style={{fontSize:13,fontWeight:"700",color:"#fbbf24"}}>Personal Best!</div><div style={{fontSize:12,color:"#d1d5db",marginTop:2}}>{repPBs.length>0&&<div>Reps: {repPBs.join(", ")}</div>}{weightPBs.length>0&&<div>Weight: {weightPBs.join(", ")}</div>}{firstEver&&<div>First time logging!</div>}</div></div>
+      <div><div style={{fontSize:13,fontWeight:"700",color:"#fbbf24"}}>Personal Best!</div><div style={{fontSize:12,color:"#d1d5db",marginTop:2}}>{repPBs.length>0&&<div>Reps: {repPBs.join(", ")}</div>}{weightPBs.length>0&&<div>Weight: {weightPBs.join(", ")}</div>}{firstPBs.length>0&&<div>First time logging: {firstPBs.join(", ")}</div>}</div></div>
     </div>
   );
 }
@@ -1638,8 +1638,8 @@ export default function App(){
   // wasn't already marked complete), else null.
   function detectChallengeCompletion(beforeNotes, beforeStrength, afterNotes, afterStrength) {
     if(!challenge||!currentChallengeRow||currentChallengeRow.completed)return null;
-    const beforeProgress=computeChallengeProgress(challenge,beforeNotes,beforeStrength,monthKey);
-    const afterProgress=computeChallengeProgress(challenge,afterNotes,afterStrength,monthKey);
+    const beforeProgress=computeChallengeProgress(challenge,beforeNotes,beforeStrength,monthKey,allExercises);
+    const afterProgress=computeChallengeProgress(challenge,afterNotes,afterStrength,monthKey,allExercises);
     return (!beforeProgress.done&&afterProgress.done)?challenge:null;
   }
 
@@ -1887,10 +1887,10 @@ export default function App(){
           <MuscleCard mgId="body" stats={muscleStats} muscleGroups={allMuscleGroups} allExercises={allExercises} notes={notes} strength={sortedStrength} monthlyChallenges={monthlyChallenges} expanded={expandedMuscle==="body"} onExpand={()=>setExpandedMuscle(expandedMuscle==="body"?null:"body")}/>
 
           {/* Monthly challenge — top of dashboard */}
-          <ChallengeCard challenge={challenge} notes={notes} strength={[...strength,...manualSessions]} completed={currentChallengeRow?.completed}/>
+          <ChallengeCard challenge={challenge} notes={notes} strength={[...strength,...manualSessions]} completed={currentChallengeRow?.completed} allExercises={allExercises}/>
 
           {/* Past challenges history */}
-          <PastChallengesSection monthlyChallenges={monthlyChallenges} currentMonthKey={monthKey} notes={notes} strength={[...strength,...manualSessions]} expanded={showPastChallenges} onToggle={()=>setShowPastChallenges(!showPastChallenges)}/>
+          <PastChallengesSection monthlyChallenges={monthlyChallenges} currentMonthKey={monthKey} notes={notes} strength={[...strength,...manualSessions]} expanded={showPastChallenges} onToggle={()=>setShowPastChallenges(!showPastChallenges)} allExercises={allExercises}/>
 
           {/* Top stat row */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
