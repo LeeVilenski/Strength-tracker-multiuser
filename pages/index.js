@@ -628,24 +628,24 @@ function SetsInput({exercise, value, onChange, notes, activityId}){
         const weightKg=set.weightUnit==="lbs"?weight*0.453592:weight;
         const isRepPB=reps>prevMaxReps&&prevMaxReps>0,isWeightPB=weightKg>prevMaxWeight&&prevMaxWeight>0;
         return(
-          <div key={i} style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
-            <div style={{width:22,height:22,borderRadius:"50%",background:C.bg,border:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:C.textFaint,flexShrink:0}}>{i+1}</div>
-            <div style={{flex:1,background:isRepPB?"#fefce8":C.bg,border:`1px solid ${isRepPB?"#fde68a":C.border}`,borderRadius:8,padding:"6px 10px",position:"relative"}}>
-              <div style={{fontSize:9,color:C.textMuted,fontWeight:"500"}}>{exercise.unit==="sec"?"sec":"reps"}</div>
-              <input type="number" value={set.reps} onChange={e=>updateSet(i,"reps",e.target.value)} placeholder="—" style={{width:"100%",background:"none",border:"none",outline:"none",fontSize:18,fontWeight:"700",color:C.text,fontFamily:"inherit",padding:0}}/>
-              {isRepPB&&<div style={{position:"absolute",top:3,right:5,fontSize:9,color:"#d97706",fontWeight:"700"}}>🏆PB</div>}
-            </div>
-            <div style={{flex:1.2,background:isWeightPB?"#fefce8":C.bg,border:`1px solid ${isWeightPB?"#fde68a":C.border}`,borderRadius:8,padding:"6px 10px",position:"relative"}}>
-              <div style={{fontSize:9,color:C.textMuted,fontWeight:"500"}}>weight</div>
-              <div style={{display:"flex",alignItems:"baseline",gap:3}}>
-                <input type="number" value={set.weight} onChange={e=>updateSet(i,"weight",e.target.value)} placeholder="BW" style={{flex:1,minWidth:0,background:"none",border:"none",outline:"none",fontSize:18,fontWeight:"700",color:C.text,fontFamily:"inherit",padding:0}}/>
-                <select value={set.weightUnit||"kg"} onChange={e=>updateSet(i,"weightUnit",e.target.value)} style={{background:"none",border:"none",outline:"none",fontSize:11,color:C.textMuted,fontFamily:"inherit",cursor:"pointer",padding:0}}>
+          <div key={i} style={{display:"grid",gridTemplateColumns:"24px minmax(0,1fr) minmax(0,1fr) 24px",gap:8,alignItems:"center",marginBottom:8}}>
+            <div style={{width:24,height:24,borderRadius:"50%",background:C.bg,border:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:"600",color:C.textMuted}}>{i+1}</div>
+            <label style={{minWidth:0,background:isRepPB?"#fefce8":C.bg,border:`1px solid ${isRepPB?"#fde68a":C.border}`,borderRadius:10,padding:"6px 10px",position:"relative",cursor:"text"}}>
+              <div style={{fontSize:10,color:C.textMuted,fontWeight:"500",textTransform:"uppercase",letterSpacing:"0.05em"}}>{exercise.unit==="sec"?"sec":"reps"}</div>
+              <input type="number" inputMode="numeric" value={set.reps} onChange={e=>updateSet(i,"reps",e.target.value)} placeholder="—" style={{width:"100%",minWidth:0,background:"none",border:"none",outline:"none",fontSize:18,fontWeight:"700",color:C.text,fontFamily:"inherit",padding:0}}/>
+              {isRepPB&&<div style={{position:"absolute",top:4,right:6,fontSize:9,color:"#d97706",fontWeight:"700"}}>🏆PB</div>}
+            </label>
+            <label style={{minWidth:0,background:isWeightPB?"#fefce8":C.bg,border:`1px solid ${isWeightPB?"#fde68a":C.border}`,borderRadius:10,padding:"6px 10px",position:"relative",cursor:"text"}}>
+              <div style={{fontSize:10,color:C.textMuted,fontWeight:"500",textTransform:"uppercase",letterSpacing:"0.05em"}}>weight</div>
+              <div style={{display:"flex",alignItems:"baseline",gap:4,minWidth:0}}>
+                <input type="number" inputMode="decimal" value={set.weight} onChange={e=>updateSet(i,"weight",e.target.value)} placeholder="BW" style={{flex:1,width:"100%",minWidth:0,background:"none",border:"none",outline:"none",fontSize:18,fontWeight:"700",color:C.text,fontFamily:"inherit",padding:0}}/>
+                <select value={set.weightUnit||"kg"} onChange={e=>updateSet(i,"weightUnit",e.target.value)} style={{flexShrink:0,background:"none",border:"none",outline:"none",fontSize:12,color:C.textMuted,fontFamily:"inherit",cursor:"pointer",padding:0}}>
                   <option value="kg">kg</option><option value="lbs">lbs</option>
                 </select>
               </div>
-              {isWeightPB&&<div style={{position:"absolute",top:3,right:5,fontSize:9,color:"#d97706",fontWeight:"700"}}>🏆wt</div>}
-            </div>
-            <button onClick={()=>removeSet(i)} style={{background:"none",border:"none",color:C.textFaint,fontSize:18,cursor:"pointer",padding:"0 2px",lineHeight:1}}>×</button>
+              {isWeightPB&&<div style={{position:"absolute",top:4,right:6,fontSize:9,color:"#d97706",fontWeight:"700"}}>🏆wt</div>}
+            </label>
+            <button onClick={()=>removeSet(i)} disabled={sets.length<=1} aria-label="Remove set" style={{background:"none",border:"none",color:C.textFaint,fontSize:18,cursor:sets.length>1?"pointer":"default",opacity:sets.length>1?1:0.3,padding:0,lineHeight:1,width:24,height:24}}>×</button>
           </div>
         );
       })}
