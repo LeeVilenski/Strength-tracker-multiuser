@@ -3,6 +3,7 @@ import Head from "next/head";
 import { MUSCLE_GROUPS as BUILTIN_MUSCLE_GROUPS, computeMuscleStats, diffMuscleStats, detectPBs, generateMonthlyChallenge, computeChallengeProgress, xpForExercise, totalRepsFromValue, bestWeightFromValue, summariseSets, BODY_GROUP, BODY_DECAY_GRACE_DAYS, DECAY_GRACE_DAYS, CHALLENGE_BONUS_XP, RUNNING_MUSCLES } from "../lib/game";
 import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES, getExercisesByCategory } from "../lib/exercises";
 import BodyMap from "../components/BodyMap";
+import { buildStravaImportText } from "../lib/description";
 
 // AI Coach insight panel is built but not yet ready to be surfaced to users — flip to true to re-enable.
 const SHOW_AI_COACH = false;
@@ -1029,9 +1030,32 @@ function ExercisePills({notes,onEdit,allExercises}){
     <div>
       {entries.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:6}}>{entries.map(([k,v])=>{const ex=allExercises.find(e=>e.id===k);return ex?<div key={k} style={{background:C.blueLight,border:`1px solid ${C.blueBorder}`,borderRadius:20,padding:"3px 10px",fontSize:12,color:C.blue,fontWeight:"500",display:"inline-flex",gap:4}}><span style={{color:"#1d4ed8"}}>{ex.label}</span><span style={{fontWeight:"700"}}>{summariseSets(v)}</span></div>:null;})}</div>}
       {notes.sessionNotes&&<div style={{fontSize:13,color:C.textMuted,fontStyle:"italic",marginBottom:6}}>{notes.sessionNotes}</div>}
-      <button onClick={onEdit} style={{background:"none",border:"none",color:C.textFaint,fontSize:12,cursor:"pointer",padding:0,fontFamily:"inherit"}}>edit</button>
+      <div style={{display:"flex",gap:14,alignItems:"center"}}>
+        <button onClick={onEdit} style={{background:"none",border:"none",color:C.textFaint,fontSize:12,cursor:"pointer",padding:0,fontFamily:"inherit"}}>edit</button>
+        {entries.length>0&&<CopyForStravaButton notes={notes} allExercises={allExercises}/>}
+      </div>
     </div>
   );
+}
+
+function CopyForStravaButton({notes,allExercises}){
+  const [status,setStatus]=useState(null);
+  async function copy(){
+    const text=buildStravaImportText(notes,allExercises);
+    if(!text)return;
+    let ok=false;
+    try{await navigator.clipboard.writeText(text);ok=true;}catch{
+      // Fallback for browsers without async clipboard access
+      const ta=document.createElement("textarea");
+      ta.value=text;ta.style.position="fixed";ta.style.opacity="0";
+      document.body.appendChild(ta);ta.select();
+      try{ok=document.execCommand("copy");}catch{}
+      document.body.removeChild(ta);
+    }
+    setStatus(ok?"copied":"failed");
+    setTimeout(()=>setStatus(null),2000);
+  }
+  return <button onClick={copy} style={{background:"none",border:"none",color:status==="copied"?"#16a34a":status==="failed"?"#dc2626":C.textFaint,fontSize:12,cursor:"pointer",padding:0,fontFamily:"inherit"}}>{status==="copied"?"✓ copied":status==="failed"?"copy failed":"copy for Strava"}</button>;
 }
 
 // ── Enrich form — exercises added via picker ──
